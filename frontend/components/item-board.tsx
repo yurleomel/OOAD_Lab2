@@ -1,23 +1,14 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlignLeft, Plus } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { AlignLeft, CalendarDays, Plus } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 
-import { ItemFormDialog } from "@/components/item-form-dialog";
-import { PageHeader } from "@/components/page-header";
+import { ItemsHeader } from "@/components/items-header";
+import { StatusIcon, StatusPill } from "@/components/status-icon";
+import { useTaskDialogs } from "@/components/task-dialogs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -28,6 +19,7 @@ import {
   type ItemStatus,
 } from "@/lib/api";
 import { statusMeta } from "@/lib/item-status";
+import { useItems } from "@/lib/use-items";
 import { cn } from "@/lib/utils";
 
 const DRAG_TYPE = "application/x-peach-item";
@@ -42,19 +34,13 @@ type DragInfo = {
 
 export function ItemBoard() {
   const queryClient = useQueryClient();
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Item | null>(null);
-  const [newStatus, setNewStatus] = useState<ItemStatus>("todo");
-  const [pendingDelete, setPendingDelete] = useState<Item | null>(null);
+  const { openCreate, openEdit } = useTaskDialogs();
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<ItemStatus | null>(null);
   const drag = useRef<DragInfo | null>(null);
   const columns = useRef<Partial<Record<ItemStatus, HTMLElement | null>>>({});
 
-  const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => api.listItems({ limit: 100 }),
-  });
+  const { data, isPending, isError, error, refetch } = useItems();
 
   const move = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ItemStatus }) =>
@@ -83,28 +69,6 @@ export function ItemBoard() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["items"] }),
   });
-
-  const remove = useMutation({
-    mutationFn: (item: Item) => api.deleteItem(item.id),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
-      toast.success("Task deleted");
-      setFormOpen(false);
-    },
-    onError: (err: Error) => toast.error(err.message),
-    onSettled: () => setPendingDelete(null),
-  });
-
-  function openCreate(status: ItemStatus) {
-    setEditing(null);
-    setNewStatus(status);
-    setFormOpen(true);
-  }
-
-  function openEdit(item: Item) {
-    setEditing(item);
-    setFormOpen(true);
-  }
 
   /** A card counts as over another column as soon as any part of it overlaps
    *  that column; otherwise fall back to whatever column the pointer is in. */
@@ -161,39 +125,24 @@ export function ItemBoard() {
   }
 
   return (
-    <div className="grid gap-8">
-      <PageHeader
-        icon="📋"
-        title="Board"
-        description={
-          data
-            ? `${data.total} task${data.total === 1 ? "" : "s"} · drag cards between columns, click one to edit`
-            : "Loading..."
-        }
-        action={
-          <Button size="lg" onClick={() => openCreate("todo")}>
-            <Plus data-icon="inline-start" className="size-4" />
-            New task
-          </Button>
-        }
-      />
+    <>
+      <ItemsHeader />
 
-      {isError && (
-        <Alert variant="destructive">
-          <AlertTitle>Could not load tasks</AlertTitle>
-          <AlertDescription className="flex items-center gap-4">
-            <span>{(error as Error).message}</span>
-            <Button size="sm" variant="outline" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {!isError && (
-        // Vertical padding keeps the drop ring from being clipped by the scroller.
+      {isError ? (
+        <div className="p-4 sm:p-6">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load tasks</AlertTitle>
+            <AlertDescription className="flex items-center gap-4">
+              <span>{(error as Error).message}</span>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : (
         <div
-          className="-mx-6 overflow-x-auto px-6 py-1 sm:-mx-8 sm:px-8"
+          className="min-h-0 flex-1 overflow-auto p-3 sm:p-4"
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onDragLeave={(event) => {
@@ -202,48 +151,37 @@ export function ItemBoard() {
             }
           }}
         >
-          <div className="grid min-h-[60vh] min-w-[720px] grid-cols-3 gap-3">
+          <div className="grid min-h-full min-w-[720px] grid-cols-3 gap-3">
             {itemStatuses.map((status) => {
-              const meta = statusMeta[status];
               const cards =
                 data?.items.filter((item) => item.status === status) ?? [];
               const isTarget = dropTarget === status;
               return (
                 <section
                   key={status}
-                  aria-label={meta.label}
+                  aria-label={statusMeta[status].label}
                   data-status={status}
                   ref={(node) => {
                     columns.current[status] = node;
                   }}
                   className={cn(
-                    "flex flex-col gap-2 rounded-xl p-2 transition-shadow",
-                    meta.column,
-                    isTarget && "ring-2 ring-primary/40 ring-inset",
+                    "flex flex-col gap-2 rounded-xl p-2.5 transition-[outline-color]",
+                    statusMeta[status].column,
+                    "outline-2 -outline-offset-2 outline-transparent outline-dashed",
+                    isTarget && "outline-status-progress",
                   )}
                 >
-                  <header className="flex items-center gap-2 px-1.5 pt-1 pb-0.5">
-                    <span
-                      className={cn(
-                        "inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-sm font-medium",
-                        meta.pill,
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className={cn("size-2 rounded-full", meta.dot)}
-                      />
-                      {meta.label}
-                    </span>
-                    <span className="text-sm text-muted-foreground tabular-nums">
+                  <header className="flex items-center gap-2 px-0.5 pb-1">
+                    <StatusPill status={status} />
+                    <span className="text-sm font-medium text-muted-foreground tabular-nums">
                       {data ? cards.length : ""}
                     </span>
                   </header>
 
                   {isPending && (
                     <>
-                      <Skeleton className="h-16 w-full rounded-lg" />
-                      <Skeleton className="h-16 w-full rounded-lg" />
+                      <Skeleton className="h-18 w-full rounded-lg bg-card" />
+                      <Skeleton className="h-18 w-full rounded-lg bg-card" />
                     </>
                   )}
 
@@ -274,10 +212,10 @@ export function ItemBoard() {
                     <button
                       type="button"
                       onClick={() => openCreate(status)}
-                      className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+                      className="flex h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
                     >
                       <Plus className="size-4" />
-                      New
+                      Add task
                     </button>
                   )}
                 </section>
@@ -286,38 +224,7 @@ export function ItemBoard() {
           </div>
         </div>
       )}
-
-      <ItemFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        item={editing}
-        defaultStatus={newStatus}
-        onDelete={setPendingDelete}
-      />
-
-      <AlertDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this task?</AlertDialogTitle>
-            <AlertDialogDescription>
-              &quot;{pendingDelete?.name}&quot; will be removed permanently.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => pendingDelete && remove.mutate(pendingDelete)}
-              disabled={remove.isPending}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </>
   );
 }
 
@@ -336,6 +243,7 @@ function BoardCard({
   onDragStart,
   onDragEnd,
 }: CardProps) {
+  const done = item.status === "done";
   return (
     <div
       role="button"
@@ -352,28 +260,34 @@ function BoardCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       className={cn(
-        "group cursor-pointer rounded-lg bg-card px-3 py-2.5 text-left shadow-notion-sm transition select-none",
-        "hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "cursor-pointer rounded-[10px] bg-card px-3 py-2.5 text-left shadow-card transition-shadow select-none",
+        "hover:shadow-card-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         "active:cursor-grabbing",
         dragging && "opacity-40",
       )}
     >
-      <p
-        className={cn(
-          "text-sm leading-snug font-medium break-words",
-          item.status === "done" && "text-muted-foreground line-through",
-        )}
-      >
-        {item.name}
-      </p>
+      <div className="flex items-start gap-2">
+        <StatusIcon status={item.status} className="mt-0.5" />
+        <p
+          className={cn(
+            "text-sm leading-snug font-medium break-words",
+            done && "text-muted-foreground line-through",
+          )}
+        >
+          {item.name}
+        </p>
+      </div>
       {item.description && (
-        <p className="mt-1 line-clamp-2 text-xs leading-relaxed break-words text-muted-foreground">
+        <p className="mt-1 ml-6 line-clamp-2 text-[13px] leading-relaxed break-words text-muted-foreground">
           {item.description}
         </p>
       )}
-      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-        {item.description && <AlignLeft aria-hidden className="size-3.5" />}
-        <span>
+      <div className="mt-2 ml-6 flex items-center gap-2.5 text-xs text-muted-foreground">
+        {item.description && (
+          <AlignLeft aria-label="Has a description" className="size-3.5" />
+        )}
+        <span className="flex items-center gap-1">
+          <CalendarDays aria-hidden className="size-3.5" />
           {new Date(item.created_at).toLocaleDateString(undefined, {
             month: "short",
             day: "numeric",

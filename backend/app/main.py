@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import dev_auth
 from app.api.router import api_router
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 
-def create_app() -> FastAPI:
-    settings = get_settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
@@ -29,6 +30,8 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router)
+    if settings.local_sign_in:
+        app.include_router(dev_auth.router)
     return app
 
 

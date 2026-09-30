@@ -1,29 +1,44 @@
+import { Check, CircleDashed, Clock, type LucideIcon } from "lucide-react";
+
 import type { ItemStatus } from "@/lib/api";
 
-/** Labels and Notion status-group colours, in board column order. */
+/** Labels, pill icons and colour classes, in board column order. */
 export const statusMeta: Record<
   ItemStatus,
-  { label: string; dot: string; pill: string; column: string; mark: string }
+  {
+    label: string;
+    Icon: LucideIcon;
+    /** Solid fill behind the white pill text. */
+    pill: string;
+    /** Soft wash for the board column. */
+    column: string;
+    /** Chart and legend marks. */
+    mark: string;
+    text: string;
+  }
 > = {
   todo: {
     label: "To do",
-    dot: "bg-muted-foreground/60",
-    pill: "bg-accent text-secondary-foreground",
-    column: "bg-tint-gray",
+    Icon: CircleDashed,
+    pill: "bg-status-todo",
+    column: "bg-status-todo-soft",
     mark: "bg-status-todo",
+    text: "text-status-todo",
   },
   in_progress: {
     label: "In progress",
-    dot: "bg-tint-blue-foreground",
-    pill: "bg-tint-blue text-tint-blue-foreground",
-    column: "bg-tint-blue/60",
+    Icon: Clock,
+    pill: "bg-status-progress",
+    column: "bg-status-progress-soft",
     mark: "bg-status-progress",
+    text: "text-status-progress",
   },
   done: {
     label: "Done",
-    dot: "bg-tint-green-foreground",
-    pill: "bg-tint-green text-tint-green-foreground",
-    column: "bg-tint-green/60",
+    Icon: Check,
+    pill: "bg-status-done",
+    column: "bg-status-done-soft",
     mark: "bg-status-done",
+    text: "text-status-done",
   },
 };

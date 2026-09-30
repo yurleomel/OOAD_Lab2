@@ -1,42 +1,49 @@
+import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
 type Props = {
-  /** Notion pages wear an emoji above the title; ours do too. */
-  icon?: string;
+  /** Drawn white on the accent gradient, in front of the title. */
+  icon: LucideIcon;
   title: string;
-  description?: React.ReactNode;
+  /** Quiet text after the title, e.g. a count. */
+  meta?: React.ReactNode;
   /** Rendered at the trailing edge of the title row. */
   action?: React.ReactNode;
+  /** A tab strip under the title; without one the header closes with padding. */
+  children?: React.ReactNode;
   className?: string;
 };
 
 export function PageHeader({
-  icon,
+  icon: Icon,
   title,
-  description,
+  meta,
   action,
+  children,
   className,
 }: Props) {
   return (
-    <div className={cn("grid gap-2", className)}>
-      {icon && (
-        <span aria-hidden className="text-[40px] leading-none">
-          {icon}
+    <header
+      className={cn(
+        "shrink-0 border-b border-border px-4 pt-4 sm:px-6",
+        !children && "pb-4",
+        className,
+      )}
+    >
+      <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+        <span
+          aria-hidden
+          className="grid size-7 place-items-center rounded-lg bg-accent-gradient text-white"
+        >
+          <Icon className="size-4" strokeWidth={2.4} />
         </span>
-      )}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="font-heading text-[2.5rem] leading-[1.1] font-bold">
-          {title}
-        </h1>
-        {action}
+        <h1 className="text-xl font-bold">{title}</h1>
+        {meta && <span className="text-sm text-muted-foreground">{meta}</span>}
+        {action && <div className="ml-auto">{action}</div>}
       </div>
-      {description && (
-        <p className="max-w-prose text-sm text-muted-foreground">
-          {description}
-        </p>
-      )}
-    </div>
+      {children}
+    </header>
   );
 }

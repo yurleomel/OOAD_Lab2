@@ -6,13 +6,9 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import {
-  AuthCard,
-  AuthLink,
-  inputClass,
-  SignInNotConfigured,
-} from "@/components/auth-layout";
+import { AuthCard, AuthLink, inputClass } from "@/components/auth-layout";
 import { GoogleSignIn } from "@/components/google-button";
+import { LocalSignInForm } from "@/components/local-sign-in";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -48,7 +44,7 @@ export function SignInForm() {
     if (session) router.replace("/home");
   }, [session, router]);
 
-  if (!authConfigured) return <SignInNotConfigured />;
+  if (!authConfigured) return <LocalSignInForm />;
 
   async function onSubmit({ email, password }: Values) {
     setError(null);

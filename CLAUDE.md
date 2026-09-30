@@ -8,17 +8,17 @@ upstream repository and are being written here.
 
 | Area | State |
 |---|---|
-| Backend: auth, users, `/me`, migration `0003`, tests | done — `pytest` 38 passed |
-| Frontend: `lib/auth.ts`, sign-in pages, `AuthGate`, `task-dashboard`, List view, ClickUp-style redesign | done — vitest 49 passed, static export builds |
-| Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | not started |
+| Backend: auth, users, `/me`, migration `0003`, local sign-in, tests | done — `pytest` 46 passed |
+| Frontend: `lib/auth.ts`, sign-in pages, `AuthGate`, `task-dashboard`, List view, ClickUp-style redesign | done — vitest 53 passed, static export builds |
+| Local run: `docker compose up --build` with local sign-in (no AWS) | done — verified in a browser: sign in, add, reload, per-user isolation |
+| Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | written, passes `cfn-lint`; not deployed yet |
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI/CD: `ci.yml`, `deploy.yml`, S3/CloudFront rights on the OIDC role | not started |
 
 ## Running
 
 ```bash
-cp .env.example .env
-docker compose up -d --build
+docker compose up -d --build        # then http://localhost:3000 - sign in with any email
 docker compose run --rm --no-deps backend sh -c "ruff check . && pytest -q"   # backend checks
 docker compose run --rm --no-deps backend alembic check                         # models vs migrations
 docker compose run --rm --no-deps frontend sh -c "pnpm lint && pnpm format:check && pnpm exec tsc --noEmit && pnpm test"
@@ -27,8 +27,10 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
 
 ## Gotchas
 
-- Until `make deploy-cognito` has written `COGNITO_*` to `.env`, every `/api/v1` route answers
-  `503 Sign-in is not configured`. That is by design — there is no auth bypass anywhere.
+- Without `COGNITO_*` the app runs in local sign-in mode (`app/dev_auth.py`): any email, no
+  password, tokens signed by the backend container. It is on only with `APP_ENV=development`, no
+  pool, and not on Lambda; without it (e.g. `APP_ENV=production` and no pool) every `/api/v1`
+  route answers `503`. After `make deploy-cognito` rebuild both services to switch to Cognito.
 - Backend tests need no Cognito: `tests/tokens.py` generates a key, hands its JWKS to the app via
   `COGNITO_JWKS`, and mints real signed tokens. Import it before `app.config` is first read.
 - `docker compose exec backend …` only works while the backend is healthy; use

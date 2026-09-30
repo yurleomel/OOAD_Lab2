@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -54,6 +55,20 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"
+
+    @property
+    def local_sign_in(self) -> bool:
+        """Sign-in without Cognito, for `docker compose up` on a fresh checkout.
+
+        Never on AWS: the stack runs APP_ENV=production, the function would need
+        a pool anyway, and Lambda itself is checked for in case of a hand-set
+        APP_ENV.
+        """
+        return (
+            self.is_development
+            and not self.auth_configured
+            and "AWS_LAMBDA_FUNCTION_NAME" not in os.environ
+        )
 
 
 @lru_cache

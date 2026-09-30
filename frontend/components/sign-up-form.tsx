@@ -7,13 +7,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import {
-  AuthCard,
-  AuthLink,
-  inputClass,
-  SignInNotConfigured,
-} from "@/components/auth-layout";
+import { AuthCard, AuthLink, inputClass } from "@/components/auth-layout";
 import { GoogleSignIn } from "@/components/google-button";
+import { LocalSignUpNotice } from "@/components/local-sign-in";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -59,7 +55,7 @@ export function SignUpForm() {
   const [password, setPassword] = useState<string | null>(null);
   const email = params.get("email") ?? "";
 
-  if (!authConfigured) return <SignInNotConfigured />;
+  if (!authConfigured) return <LocalSignUpNotice />;
 
   if (params.get("step") === "confirm" && email) {
     return <ConfirmStep email={email} password={password} />;

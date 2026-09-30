@@ -83,6 +83,7 @@ Peach/
 │   │   ├── config.py             # Settings from the environment; nothing else reads os.environ
 │   │   ├── db.py                 # async engine, session dependency
 │   │   ├── auth.py               # ★ Cognito ID-token verification, current_user, CurrentUser
+│   │   ├── dev_auth.py           # ★ local sign-in for docker compose up without AWS (§9)
 │   │   ├── lambda_handler.py     # Lambda entry: HTTP via Mangum, {"action":"migrate"} -> alembic
 │   │   ├── models/               # ORM: item.py, user.py ★
 │   │   ├── schemas/              # request/response models: item.py, user.py ★
@@ -92,7 +93,7 @@ Peach/
 │   │       └── routes/           # HTTP layer only: health.py, items.py, me.py ★
 │   ├── migrations/versions/      # 0001, 0002, 0003_users ★
 │   ├── scripts/entrypoint.sh     # migrate, then uvicorn (runtime image)
-│   └── tests/                    # pytest against real Postgres; tokens.py ★, test_auth.py ★, test_me.py ★
+│   └── tests/                    # pytest against real Postgres; tokens.py ★, test_auth.py ★, test_me.py ★, test_local_sign_in.py ★
 │
 └── frontend/
     ├── Dockerfile                # stages: base, deps, dev, builder, runtime
@@ -117,6 +118,7 @@ Peach/
     │   ├── auth-gate.tsx         # ★ redirects signed-out visitors to /
     │   ├── auth-layout.tsx       # ★ backdrop + card shared by the signed-out pages
     │   ├── sign-in-form.tsx, sign-up-form.tsx, auth-callback.tsx, google-button.tsx  # ★
+    │   ├── local-sign-in.tsx     # ★ the sign-in form of a build without a Cognito pool
     │   ├── task-dashboard.tsx    # ★ the /home dashboard
     │   ├── item-board.tsx, item-list.tsx ★, items-header.tsx ★  # the two views and their tabs
     │   ├── status-icon.tsx ★, brand-mark.tsx ★, item-form-dialog.tsx, page-header.tsx, providers.tsx
@@ -183,13 +185,13 @@ The browser and the frontend server use different API URLs on purpose: the brows
 ## 6. Local stack
 
 ```bash
-cp .env.example .env
-make deploy-cognito          # once — local sign-in uses the real user pool (§9)
 docker compose up --build
 ```
 
-`docker compose up` is the only command a developer runs day to day. Docker Desktop is the only
-prerequisite, plus the AWS CLI for the one-time `make deploy-cognito`.
+That is the only command a new developer runs; Docker Desktop is the only prerequisite. Every
+variable has a default, so no `.env` is needed, and with no Cognito pool configured the app signs
+in locally (§9): any email, no password, no AWS. `cp .env.example .env` is for overriding ports or,
+later, for `make deploy-cognito` to write the pool ids into.
 
 | Service | Built from | Host port → container | Depends on | Ready when |
 |---|---|---|---|---|
@@ -282,6 +284,7 @@ is public.
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | `GET` | `/health` | — | `200 {"status":"ok"}` — touches nothing | — |
+| `POST` | `/local/sign-in` ★ | `{"email", "name"?}` | `200 {"id_token"}` — **local development only** (§9); absent everywhere else | `422` |
 | `GET` | `/api/v1/health/ready` | — | `200 {"status":"ok","database":"ok"}` | `503` if `SELECT 1` fails |
 | `GET` | `/api/v1/me` ★ | — | `200 UserRead` | `401` |
 | `GET` | `/api/v1/items` | — | `200 {"items": ItemRead[], "total": int}` | `422` on bad `limit`/`offset` |
@@ -342,9 +345,22 @@ Swagger at `/docs`, ReDoc at `/redoc`, the schema at `/openapi.json`.
   sign-in/sign-out (also across tabs); `signOut()` clears storage;
 - a `401` from the API signs the browser out.
 
-**No bypass in any environment.** Local development signs in against the same user pool as
-production. `AuthGate` is a convenience — the static export has no server to refuse a page; the
-real boundary is the API.
+**Local sign-in** ★ (`app/dev_auth.py`, `components/local-sign-in.tsx`) — so that
+`docker compose up` works on a fresh checkout with no AWS account:
+
+- the API mints RS256 ID tokens for any email at `POST /local/sign-in` (no password; the same
+  email maps to the same `sub`, so the same board), signed by a key kept in the container's temp
+  dir; `app/auth.py` verifies them with the same checks as Cognito's, against that key, a local
+  issuer and audience;
+- the frontend shows this form instead of the Cognito one whenever it was built without
+  `COGNITO_CLIENT_ID`; tokens last 12 hours and are not refreshed;
+- three guards keep it off AWS: it needs `APP_ENV=development` (the Lambda stack runs
+  `production`), no pool configured, and no `AWS_LAMBDA_FUNCTION_NAME`; and `deploy-frontend.sh`
+  refuses to build without the pool ids. Once `make deploy-cognito` has run, local sign-in turns
+  itself off and local development uses the real pool.
+
+`AuthGate` is a convenience — the static export has no server to refuse a page; the real
+boundary is the API.
 
 ---
 
@@ -540,6 +556,7 @@ Covered, because they break silently:
 | Path | Checks |
 |---|---|
 | auth ★ | no token, bad signature, expired, wrong audience, access token instead of ID token → `401`; no pool → `503`; `/health` stays public |
+| local sign-in ★ | sign in then use the API; same email = same person; forged local token → `401`; off outside development, once a pool exists, and on Lambda |
 | ownership | another user's item → `404` on read, update, delete; their list is empty |
 | user provisioning ★ | first request creates the row, later ones reuse it, email/name refresh |
 | items | create, validate, update partially, delete, paginate |
@@ -559,12 +576,13 @@ email beyond Cognito's own, Kubernetes, multiple environments (staging), ECS/ALB
 ## 17. Build order
 
 1. Review and fix this file.
-2. AWS account (root MFA, IAM user, `aws configure`); `make deploy-cognito`.
+2. AWS account (root MFA, IAM user, `aws configure`) — needed from step 6 on, not before.
 3. Generate the ★ backend pieces (auth, users, `/me`, migration 0003, tests) — `pytest` green.
 4. Generate the ★ frontend pieces (auth, sign-in pages, gate, dashboard, tests) — lint, types,
    tests green.
-5. `docker compose up --build`; sign up, add a task, reload — it is still there.
+5. `docker compose up --build`; sign in locally, add a task, reload — it is still there.
 6. `ci.yml`; push one commit that fails the linter on purpose, see it red, fix it.
-7. `make deploy-backend`, `make deploy-frontend`; `make domain` and `make domain-backend`.
+7. `make deploy-cognito`, `make deploy-backend`, `make deploy-frontend`; `make domain` and
+   `make domain-backend`.
 8. `make github-role`, `deploy.yml`; a push to `main` redeploys both.
 9. Tear down what is no longer needed (§12).

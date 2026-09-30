@@ -16,6 +16,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app import dev_auth
 from app.config import Settings, get_settings
 from app.db import SessionDep
 from app.models import User
@@ -69,7 +70,8 @@ async def current_user(
     settings: Annotated[Settings, Depends(get_settings)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> User:
-    if not settings.auth_configured:
+    local = settings.local_sign_in
+    if not (settings.auth_configured or local):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Sign-in is not configured",
@@ -79,12 +81,15 @@ async def current_user(
 
     token = credentials.credentials
     try:
+        # Local development trusts its own key (app/dev_auth.py); everything
+        # else only the user pool. The checks below are the same for both.
+        key = dev_auth.signing_key().public_key() if local else await _signing_key(token, settings)
         claims = jwt.decode(
             token,
-            await _signing_key(token, settings),
+            key,
             algorithms=["RS256"],
-            audience=settings.cognito_client_id,
-            issuer=settings.cognito_issuer,
+            audience=dev_auth.AUDIENCE if local else settings.cognito_client_id,
+            issuer=dev_auth.ISSUER if local else settings.cognito_issuer,
             options={"require": ["exp", "iss", "aud", "sub", "token_use"]},
         )
     except jwt.PyJWKClientConnectionError as exc:

@@ -80,19 +80,3 @@ export function AuthLink({
     </Link>
   );
 }
-
-/** Shown instead of a form when the build carries no Cognito pool ids. */
-export function SignInNotConfigured() {
-  return (
-    <AuthCard
-      title="Sign-in is not set up"
-      subtitle="This build has no Cognito user pool to sign in against."
-    >
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Run <code>make deploy-cognito</code>, which writes the pool ids to{" "}
-        <code>.env</code>, then rebuild the frontend with{" "}
-        <code>docker compose up --build</code>.
-      </p>
-    </AuthCard>
-  );
-}

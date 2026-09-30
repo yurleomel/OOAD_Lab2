@@ -21,7 +21,8 @@ const config = {
   googleEnabled: process.env.NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED === "true",
 };
 
-/** False until make deploy-cognito has written the pool ids and the app was rebuilt. */
+/** False until make deploy-cognito has written the pool ids and the app was rebuilt.
+ *  Until then the app signs in locally, against the API's own development key. */
 export const authConfigured = Boolean(config.clientId);
 export const googleEnabled =
   authConfigured && config.googleEnabled && Boolean(config.domain);
@@ -262,6 +263,44 @@ export async function resendCode(email: string) {
   });
 }
 
+/* --- local development ---------------------------------------------------- */
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+/**
+ * `docker compose up` without a Cognito pool: any email, no password. The API
+ * signs the token itself, and only while it runs as local development.
+ */
+export async function signInLocally(email: string, name: string) {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/local/sign-in`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name }),
+    });
+  } catch {
+    throw new AuthError("NetworkError", "Could not reach the API.");
+  }
+  if (response.status === 404) {
+    throw new AuthError(
+      "LocalSignInOff",
+      "This API does not offer local sign-in: it needs APP_ENV=development and no Cognito pool.",
+    );
+  }
+  if (!response.ok) {
+    throw new AuthError(
+      "LocalSignInFailed",
+      response.status === 422
+        ? "Enter a valid email address."
+        : `Sign-in failed (${response.status}).`,
+    );
+  }
+  const { id_token } = (await response.json()) as { id_token: string };
+  // No refresh token: when this one runs out, sign in again.
+  saveSession(id_token, "");
+}
+
 /* --- tokens for the API -------------------------------------------------- */
 
 let refreshing: Promise<string | null> | null = null;
@@ -297,6 +336,11 @@ export async function getIdToken(): Promise<string | null> {
   const tokens = readTokens();
   if (!tokens) return null;
   if (tokens.expiresAt - REFRESH_MARGIN_MS > Date.now()) return tokens.idToken;
+  if (!tokens.refreshToken) {
+    // A local sign-in has nothing to renew it with.
+    signOut();
+    return null;
+  }
   // Several requests can notice the expiry at once; they share one refresh.
   refreshing ??= refresh(tokens).finally(() => {
     refreshing = null;

@@ -7,6 +7,8 @@ const output =
 
 const nextConfig: NextConfig = {
   output,
+  // Bottom-left is where the icon rail keeps "Log out".
+  devIndicators: { position: "bottom-right" },
   // The export target has no server to optimize images on the fly.
   ...(output === "export" ? { images: { unoptimized: true } } : {}),
 };

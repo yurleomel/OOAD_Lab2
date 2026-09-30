@@ -7,6 +7,8 @@ import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { inputClass } from "@/components/auth-layout";
+import { StatusIcon } from "@/components/status-icon";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -78,13 +80,15 @@ export function ItemFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="gap-5 rounded-2xl p-6 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit task" : "New task"}</DialogTitle>
+          <DialogTitle className="text-lg font-bold">
+            {isEditing ? "Edit task" : "New task"}
+          </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Change the details or move it to another column."
-              : "Add a card to the board."}
+              ? "Change the details or move it to another status."
+              : "Add a task to your board."}
           </DialogDescription>
         </DialogHeader>
 
@@ -94,7 +98,12 @@ export function ItemFormDialog({
         >
           <Field data-invalid={Boolean(form.formState.errors.name)}>
             <FieldLabel htmlFor="name">Title</FieldLabel>
-            <Input id="name" autoComplete="off" {...form.register("name")} />
+            <Input
+              id="name"
+              autoComplete="off"
+              className={inputClass}
+              {...form.register("name")}
+            />
             {form.formState.errors.name && (
               <FieldError errors={[form.formState.errors.name]} />
             )}
@@ -109,7 +118,7 @@ export function ItemFormDialog({
                 <div
                   role="radiogroup"
                   aria-labelledby="status-label"
-                  className="flex flex-wrap gap-1.5"
+                  className="flex flex-wrap gap-2"
                 >
                   {itemStatuses.map((status) => {
                     const meta = statusMeta[status];
@@ -122,16 +131,13 @@ export function ItemFormDialog({
                         aria-checked={selected}
                         onClick={() => field.onChange(status)}
                         className={cn(
-                          "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition",
+                          "inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
                           selected
-                            ? cn(meta.pill, "ring-1 ring-foreground/15")
-                            : "text-muted-foreground hover:bg-accent",
+                            ? "border-primary/50 bg-primary/5 text-foreground ring-2 ring-primary/15"
+                            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
                       >
-                        <span
-                          aria-hidden
-                          className={cn("size-2 rounded-full", meta.dot)}
-                        />
+                        <StatusIcon status={status} />
                         {meta.label}
                       </button>
                     );
@@ -147,6 +153,7 @@ export function ItemFormDialog({
               id="description"
               rows={4}
               placeholder="Add more detail..."
+              className="rounded-lg border-input bg-card px-3 focus-visible:bg-card"
               {...form.register("description")}
             />
             {form.formState.errors.description && (
@@ -154,7 +161,7 @@ export function ItemFormDialog({
             )}
           </Field>
 
-          <DialogFooter className="sm:justify-between">
+          <DialogFooter className="-mx-6 -mb-6 rounded-b-2xl px-6 sm:justify-between">
             {item && onDelete ? (
               <Button
                 type="button"

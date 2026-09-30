@@ -153,7 +153,7 @@ describe("ItemBoard", () => {
       name: "In progress",
     });
     await userEvent.click(
-      await within(inProgress).findByRole("button", { name: "New" }),
+      await within(inProgress).findByRole("button", { name: "Add task" }),
     );
 
     expect(

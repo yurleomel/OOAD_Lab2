@@ -100,25 +100,33 @@ Peach/
     ├── next.config.ts            # output "standalone" (Compose) or "export" (S3)
     ├── app/
     │   ├── layout.tsx            # fonts, Providers, Toaster
+    │   ├── globals.css           # theme tokens (§10 visual language)
     │   ├── page.tsx              # ★ / — sign in
     │   ├── signup/page.tsx       # ★ /signup — create account, confirm the emailed code
     │   ├── auth/callback/page.tsx# ★ /auth/callback — Google sign-in lands here
     │   ├── not-found.tsx         # ★ exported as 404.html
     │   └── (app)/                # signed-in area
-    │       ├── layout.tsx        # ★ SiteHeader + AuthGate
+    │       ├── layout.tsx        # ★ AuthGate + AppShell
     │       ├── home/page.tsx     # /home — dashboard
-    │       └── items/page.tsx    # /items — board
+    │       ├── items/page.tsx    # /items — board
+    │       └── items/list/page.tsx # ★ /items/list — the same tasks as a grouped list
     ├── components/
     │   ├── ui/                   # shadcn-generated; never hand-edited
+    │   ├── app-shell.tsx         # ★ top bar, icon rail, sidebar with status counts
+    │   ├── task-dialogs.tsx      # ★ one create/edit dialog + delete confirmation for every page
     │   ├── auth-gate.tsx         # ★ redirects signed-out visitors to /
+    │   ├── auth-layout.tsx       # ★ backdrop + card shared by the signed-out pages
+    │   ├── sign-in-form.tsx, sign-up-form.tsx, auth-callback.tsx, google-button.tsx  # ★
     │   ├── task-dashboard.tsx    # ★ the /home dashboard
-    │   ├── item-board.tsx, item-form-dialog.tsx, page-header.tsx, site-header.tsx, providers.tsx
+    │   ├── item-board.tsx, item-list.tsx ★, items-header.tsx ★  # the two views and their tabs
+    │   ├── status-icon.tsx ★, brand-mark.tsx ★, item-form-dialog.tsx, page-header.tsx, providers.tsx
     ├── lib/
     │   ├── api.ts                # the only place that calls fetch; zod schemas mirroring §8
     │   ├── auth.ts               # ★ Cognito sign-in/up, token storage and refresh, useSession
-    │   ├── item-status.ts        # status labels and colours
+    │   ├── use-items.ts          # ★ every task, paged through; the one ["items"] cache entry
+    │   ├── item-status.ts        # status labels, icons and colours
     │   └── utils.ts
-    └── tests/                    # vitest + Testing Library; auth.test.ts ★, task-dashboard.test.tsx ★
+    └── tests/                    # vitest + Testing Library; next/navigation mocked in setup.ts
 ```
 
 A folder that cannot be explained in one line does not belong here.
@@ -348,8 +356,25 @@ real boundary is the API.
 | `/signup` ★ | public | name, email, password → then the emailed 6-digit code; resend link; link back to `/` |
 | `/auth/callback` ★ | public | exchanges the Google code, then `/home`; on failure an error with a link back to `/` |
 | `/home` | signed in | dashboard (below) |
-| `/items` | signed in | board: one column per status, drag cards between columns (optimistic, rolled back on error), click a card to edit or delete, "New" per column |
-| 404 ★ | public | not found, with a link to `/home` |
+| `/items` | signed in | board: one column per status, drag cards between columns (optimistic, rolled back on error), click a card to edit or delete, "Add task" per column |
+| `/items/list` ★ | signed in | the same tasks grouped by status in collapsible sections; click a row to edit, "Add task" per group; `#status-<status>` jumps to a group |
+| 404 ★ | public | not found, with a link to `/home` and one to `/` |
+
+Board and List are two tabs over the same data; the sidebar, the dashboard and both views read
+one query (`useItems`), and one set of dialogs (`task-dialogs.tsx`) serves them all, so "+ Task"
+works from any page.
+
+**Visual language** — modelled on ClickUp's product screens, with Peach's own name and mark:
+
+- workspace chrome: grey backdrop, a black icon rail on the left (active item glows on the
+  violet→blue gradient), a white sidebar and a white page panel with 16px corners;
+- statuses: solid upper-case pills (`TO DO` grey `#6b7280`, `IN PROGRESS` blue `#1e6feb`,
+  `DONE` green `#1b7f51`, all ≥ 4.5:1 with white text) and a round status icon before every
+  task; board columns carry a soft wash of the same hue;
+- accent `#6647f0`; gradients from the brand kit (`#ff02f0→#f76808` for the mark,
+  `#6647f0→#0091ff` for active and progress);
+- type: Plus Jakarta Sans for headings, Inter for everything else (both OFL, via `next/font`);
+- light theme first; dark tokens track it. Tokens live in `app/globals.css` only.
 
 **Dashboard** (`task-dashboard.tsx`) ★ — built from `GET /items`, paged at `limit=100` until
 `total` is reached:
@@ -519,7 +544,7 @@ Covered, because they break silently:
 | user provisioning ★ | first request creates the row, later ones reuse it, email/name refresh |
 | items | create, validate, update partially, delete, paginate |
 | lambda handler | a function URL event reaches the app; repeated calls survive |
-| frontend | `api.ts` attaches the token, parses, raises `ApiError`, signs out on `401`; board drag/edit/rollback; `auth.ts` refresh and sign-out ★; dashboard figures from a known list ★ |
+| frontend | `api.ts` attaches the token, parses, raises `ApiError`, signs out on `401`; board drag/edit/rollback; list grouping, edit, add-in-group, collapse ★; `auth.ts` password flow, error mapping, refresh (shared, kept on network failure, sign-out on refusal), Google PKCE ★; gate redirect, sign-in/up forms ★; dashboard figures from a known list, paging past 100 ★ |
 
 ---
 

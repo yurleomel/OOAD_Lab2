@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Peach sign-in: a Cognito user pool (email is the username), one public app
+  client for the browser, a hosted domain for the OAuth redirect, and Google as
+  an optional identity provider. Deployed by scripts/deploy-cognito.sh.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: peach
+    AllowedPattern: "^[a-z][a-z0-9-]{1,30}$"
+    Description: Prefix for names, and the value of every PROJECT_NAME tag.
+
+  CallbackUrls:
+    Type: CommaDelimitedList
+    Default: http://localhost:3000/auth/callback
+    Description: >-
+      Where the hosted domain may send the browser back after Google. Local
+      Compose always; the deployed site once it exists.
+
+  GoogleClientId:
+    Type: String
+    Default: ""
+    Description: OAuth client id from Google Cloud. Empty keeps Google off.
+
+  GoogleClientSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+
+Conditions:
+  HasGoogle: !Not [!Equals [!Ref GoogleClientId, ""]]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-users"
+      UsernameAttributes: [email]
+      UsernameConfiguration:
+        CaseSensitive: false
+      AutoVerifiedAttributes: [email]
+      # Mirrors the sign-up form's own check (PROJECT.md §9).
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireNumbers: true
+          RequireLowercase: false
+          RequireUppercase: false
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: Your Peach confirmation code
+        EmailMessage: "Your Peach confirmation code is {####}"
+      # Cognito's own sender: no SES setup, about 50 emails a day - enough for
+      # a course project.
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      DeletionProtection: INACTIVE
+      UserPoolTags:
+        PROJECT_NAME: !Ref ProjectName
+
+  GoogleProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogle
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: openid email profile
+      AttributeMapping:
+        email: email
+        email_verified: email_verified
+        name: name
+
+  # Public: it lives in the browser, so it has no secret. The API accepts only
+  # ID tokens issued to this client (the `aud` claim).
+  WebClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub "${ProjectName}-web"
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      # Referencing the provider (not the literal "Google") orders creation.
+      SupportedIdentityProviders: !If
+        - HasGoogle
+        - [COGNITO, !Ref GoogleProvider]
+        - [COGNITO]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      CallbackURLs: !Ref CallbackUrls
+      IdTokenValidity: 60
+      AccessTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: days
+
+  # <project>-<account id> is unique across AWS without anyone choosing a name.
+  HostedDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Sub "${ProjectName}-${AWS::AccountId}"
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+  ClientId:
+    Value: !Ref WebClient
+  Domain:
+    Value: !Sub "${HostedDomain}.auth.${AWS::Region}.amazoncognito.com"
+  GoogleEnabled:
+    Value: !If [HasGoogle, "true", "false"]
+  GoogleRedirectUri:
+    Description: The authorised redirect URI to register on the Google OAuth client.
+    Value: !Sub "https://${HostedDomain}.auth.${AWS::Region}.amazoncognito.com/oauth2/idpresponse"

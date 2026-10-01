@@ -67,7 +67,7 @@ export function SignInForm() {
   return (
     <AuthCard
       title="Welcome back"
-      subtitle="Log in to your Peach board."
+      subtitle="Log in to your Lanora board."
       footer={
         <>
           New here? <AuthLink href="/signup">Create an account</AuthLink>

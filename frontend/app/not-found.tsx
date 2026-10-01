@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AuthCard, AuthLayout, AuthLink } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 
-export const metadata = { title: "Not found | Peach" };
+export const metadata = { title: "Not found | Lanora" };
 
 export default function NotFound() {
   return (

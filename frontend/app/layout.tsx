@@ -20,7 +20,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Peach",
+  title: "Lanora",
   description: "A personal task board",
 };
 

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { AuthCardSkeleton, AuthLayout } from "@/components/auth-layout";
 import { SignUpForm } from "@/components/sign-up-form";
 
-export const metadata = { title: "Create an account | Peach" };
+export const metadata = { title: "Create an account | Lanora" };
 
 export default function SignUpPage() {
   return (

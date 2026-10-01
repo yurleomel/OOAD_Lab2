@@ -56,7 +56,7 @@ function TopBar() {
         className="flex items-center gap-2.5 rounded-lg py-1.5 pr-2.5 pl-1.5 text-[15px] font-semibold transition-colors hover:bg-black/5"
       >
         <BrandMark />
-        Peach
+        Lanora
       </Link>
 
       {/* Below lg the sidebar is gone, so its two destinations move up here. */}

@@ -51,7 +51,7 @@ export function LocalSignInForm() {
 
   return (
     <AuthCard
-      title="Welcome to Peach"
+      title="Welcome to Lanora"
       subtitle="No Cognito and no password here: use any email. The same email brings back the same board."
     >
       <LocalBadge />

@@ -17,7 +17,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           className="flex items-center gap-2.5 rounded-lg py-1.5 pr-2.5 pl-1.5 text-[15px] font-semibold transition-colors hover:bg-black/5"
         >
           <BrandMark />
-          Peach
+          Lanora
         </Link>
       </header>
       <main className="grid flex-1 place-items-center px-4 py-10">

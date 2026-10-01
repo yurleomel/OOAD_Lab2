@@ -46,8 +46,6 @@ PROJECT_NAME="${PROJECT_NAME:-peach}"
 STACK_NAME="${FRONTEND_STACK_NAME:-${PROJECT_NAME}-frontend}"
 AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 export AWS_DEFAULT_REGION="${AWS_REGION}"
-# CloudFront only takes certificates from us-east-1, whatever the stack region.
-ACM_REGION=us-east-1
 
 # `make domain DOMAIN=app.example.com` wins over whatever .env remembers.
 DOMAIN="${DOMAIN:-${DOMAIN_NAME:-}}"
@@ -84,33 +82,8 @@ PY
   log "wrote ${1} to .env"
 }
 
-# The zone for app.example.com is example.com: walk the labels and keep the
-# longest public zone that the domain actually sits under.
-find_hosted_zone() {
-  DOMAIN="${DOMAIN}" python3 - <<'PY'
-import json, os, subprocess
-
-domain = os.environ["DOMAIN"]
-out = subprocess.run(
-    ["aws", "route53", "list-hosted-zones", "--output", "json"],
-    capture_output=True, text=True,
-)
-if out.returncode != 0:
-    raise SystemExit(0)
-
-best = None
-for zone in json.loads(out.stdout).get("HostedZones", []):
-    if zone.get("Config", {}).get("PrivateZone"):
-        continue
-    name = zone["Name"].rstrip(".")
-    if domain == name or domain.endswith("." + name):
-        if best is None or len(name) > len(best[1]):
-            best = (zone["Id"].split("/")[-1], name)
-
-if best:
-    print(best[0], best[1])
-PY
-}
+# shellcheck source-path=SCRIPTDIR source=lib/domain.sh
+source "${ROOT}/scripts/lib/domain.sh"
 
 stack_output() {
   aws cloudformation describe-stacks --stack-name "${STACK_NAME}" \
@@ -120,92 +93,11 @@ stack_output() {
 
 # --- hosted zone ------------------------------------------------------------
 
-ZONE_ID=""
-ZONE_NAME=""
-read -r ZONE_ID ZONE_NAME <<<"$(find_hosted_zone)" || true
-
-if [[ -n "${ZONE_ID}" ]]; then
-  log "${DOMAIN} sits in the Route 53 zone ${ZONE_NAME} (${ZONE_ID})"
-else
-  warn "no Route 53 zone covers ${DOMAIN} - you will add DNS records by hand"
-fi
+resolve_hosted_zone
 
 # --- certificate ------------------------------------------------------------
 
-CERT_ARN="$(aws acm list-certificates --region "${ACM_REGION}" \
-  --certificate-statuses PENDING_VALIDATION ISSUED \
-  --query "CertificateSummaryList[?DomainName=='${DOMAIN}']|[0].CertificateArn" \
-  --output text 2>/dev/null || true)"
-
-if [[ -z "${CERT_ARN}" || "${CERT_ARN}" == "None" ]]; then
-  log "requesting an ACM certificate for ${DOMAIN} in ${ACM_REGION}"
-  CERT_ARN="$(aws acm request-certificate --region "${ACM_REGION}" \
-    --domain-name "${DOMAIN}" \
-    --validation-method DNS \
-    --key-algorithm RSA_2048 \
-    --tags "Key=PROJECT_NAME,Value=${PROJECT_NAME}" \
-    --query CertificateArn --output text)"
-else
-  log "reusing the certificate already issued for ${DOMAIN}"
-fi
-
-CERT_STATUS="$(aws acm describe-certificate --region "${ACM_REGION}" --certificate-arn "${CERT_ARN}" \
-  --query Certificate.Status --output text)"
-
-if [[ "${CERT_STATUS}" != "ISSUED" ]]; then
-  # ACM takes a moment to publish the record it wants to see.
-  RECORD=""
-  for _ in $(seq 1 12); do
-    RECORD="$(aws acm describe-certificate --region "${ACM_REGION}" --certificate-arn "${CERT_ARN}" \
-      --query "Certificate.DomainValidationOptions[0].ResourceRecord.[Name,Type,Value]" \
-      --output text 2>/dev/null || true)"
-    [[ -n "${RECORD}" && "${RECORD}" != *"None"* ]] && break
-    sleep 5
-  done
-  [[ -n "${RECORD}" && "${RECORD}" != *"None"* ]] \
-    || die "ACM did not publish a validation record for ${DOMAIN}"
-
-  read -r RECORD_NAME RECORD_TYPE RECORD_VALUE <<<"${RECORD}"
-
-  if [[ -n "${ZONE_ID}" ]]; then
-    log "adding the validation record to Route 53"
-    CHANGE_FILE="$(mktemp)"
-    trap 'rm -f "${CHANGE_FILE}"' EXIT
-    cat >"${CHANGE_FILE}" <<JSON
-{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{
-  "Name":"${RECORD_NAME}","Type":"${RECORD_TYPE}","TTL":300,
-  "ResourceRecords":[{"Value":"${RECORD_VALUE}"}]}}]}
-JSON
-    aws route53 change-resource-record-sets \
-      --hosted-zone-id "${ZONE_ID}" \
-      --change-batch "file://${CHANGE_FILE}" >/dev/null
-  else
-    echo
-    echo "  Add this record wherever ${DOMAIN} is hosted, then leave this running:"
-    echo
-    echo "    name   ${RECORD_NAME}"
-    echo "    type   ${RECORD_TYPE}"
-    echo "    value  ${RECORD_VALUE}"
-    echo
-  fi
-
-  log "waiting for ACM to validate ${DOMAIN} (minutes, once DNS propagates)"
-  for _ in $(seq 1 120); do
-    CERT_STATUS="$(aws acm describe-certificate --region "${ACM_REGION}" --certificate-arn "${CERT_ARN}" \
-      --query Certificate.Status --output text)"
-    case "${CERT_STATUS}" in
-      ISSUED) break ;;
-      PENDING_VALIDATION) printf '.' ; sleep 15 ;;
-      *) echo; die "certificate ended up ${CERT_STATUS} - see ACM in the console" ;;
-    esac
-  done
-  echo
-fi
-
-[[ "${CERT_STATUS}" == "ISSUED" ]] \
-  || die "gave up waiting - DNS is probably not published yet, re-run when it is"
-
-log "certificate issued"
+ensure_certificate
 # Only the domain is remembered. The zone and the certificate are looked up
 # again on every run, so neither needs to live in .env.
 env_set DOMAIN_NAME "${DOMAIN}"
@@ -243,21 +135,7 @@ fi
 
 TARGET="$(stack_output DistributionDomainName)"
 
-if [[ -z "${ZONE_ID}" ]]; then
-  echo
-  if [[ "${DOMAIN}" == *.*.* ]]; then
-    echo "  Last step - point ${DOMAIN} at CloudFront:"
-    echo
-    echo "    name   ${DOMAIN}"
-    echo "    type   CNAME"
-    echo "    value  ${TARGET}"
-  else
-    echo "  Last step - point ${DOMAIN} at ${TARGET}."
-    warn "${DOMAIN} is a zone apex, which cannot be a CNAME. Either move the"
-    warn "zone to Route 53 and re-run, or use your provider's ALIAS/ANAME record."
-  fi
-  echo
-fi
+[[ -n "${ZONE_ID}" ]] || print_routing_record "${TARGET}"
 
 echo "  https://${DOMAIN} - the cloudfront.net name keeps working too"
 echo

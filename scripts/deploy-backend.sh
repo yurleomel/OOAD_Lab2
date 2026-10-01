@@ -328,7 +328,13 @@ API_URL="$(outputs ApiUrl)"
 API_URL="${API_URL%/}"
 
 # deploy-frontend.sh compiles the bundle against this.
-env_set BACKEND_URL "${API_URL}"
+# Once the API has its own domain (make domain-backend), the site talks to it
+# through that, not through the function URL.
+if [[ -n "${API_DOMAIN_NAME:-}" ]]; then
+  env_set BACKEND_URL "https://${API_DOMAIN_NAME}"
+else
+  env_set BACKEND_URL "${API_URL}"
+fi
 
 echo
 echo "  api        ${API_URL}"

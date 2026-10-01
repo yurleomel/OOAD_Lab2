@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain deploy-frontend destroy-frontend github-role
+.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -69,6 +69,12 @@ logs-backend: ## Tail the deployed backend's CloudWatch logs
 migrate-backend: ## Re-run migrations on the deployed backend (deploy-backend already does)
 	aws lambda invoke --function-name $${PROJECT_NAME:-peach}-backend \
 		--cli-binary-format raw-in-base64-out --payload '{"action":"migrate"}' /dev/stdout
+
+domain-backend: ## Give the API a custom domain with HTTPS: make domain-backend DOMAIN=api.example.com
+	./scripts/domain-backend.sh
+
+destroy-backend-domain: ## Delete the API's custom-domain distribution
+	./scripts/destroy-backend-domain.sh
 
 cert: ## Request + DNS-validate a us-east-1 certificate for the frontend: make cert DOMAIN=app.example.com
 	./scripts/domain-frontend.sh cert

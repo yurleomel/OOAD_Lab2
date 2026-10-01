@@ -12,11 +12,11 @@ upstream repository and are being written here.
 | Frontend: `lib/auth.ts`, sign-in pages, `AuthGate`, `task-dashboard`, List view, ClickUp-style redesign | done — vitest 53 passed, static export builds |
 | Local run: `docker compose up --build` with local sign-in (no AWS) | done — verified in a browser: sign in, add, reload, per-user isolation |
 | Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | deployed (pool `us-east-1_qEVU77JkT`) |
-| AWS: backend on Lambda + RDS PostgreSQL, site on S3 + CloudFront | live - site https://d6qjoq19m7ta0.cloudfront.net, API https://ama23qrervq2gu4uepqxl7jcce0stitq.lambda-url.us-east-1.on.aws; Cognito sign-in checked end to end |
+| AWS: backend on Lambda + RDS PostgreSQL, site on S3 + CloudFront | live - site https://app.mylanora.world, API https://api.mylanora.world (behind them d6qjoq19m7ta0.cloudfront.net and the function URL ama23qrervq2gu4uepqxl7jcce0stitq.lambda-url.us-east-1.on.aws); Cognito sign-in checked end to end on both |
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
-| CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | in place; the first run on `main` failed on the OIDC subject, fixed in `fix/oidc-subject` |
-| Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | not started - no domain yet |
+| CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | done - every push to `main` checks, then ships the backend (image tagged with the SHA) and the site |
+| Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
 
 ## Running
 
@@ -57,6 +57,9 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
   provider ("web identity token could not be validated").
 - `make deploy-backend` builds the image locally, so Docker must be running; `deploy-frontend.sh`
   builds with the pnpm pinned in `package.json` (via corepack if PATH has another major).
+- Fresh DNS names can stay "not found" for up to an hour on resolvers that looked them up before
+  the record existed (negative caching); `dig @1.1.1.1` shows the truth, and Playwright can be
+  pointed past it with `--host-resolver-rules`.
 - `.env` now carries the pool ids, so a rebuilt local stack signs in through Cognito; blank the
   `COGNITO_*` lines to get local sign-in back.
 - Remotes: `origin` is the student repository, `upstream` is the course repository. Never push to

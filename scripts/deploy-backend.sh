@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the backend image, push it to ECR, roll the Lambda function defined in
-# infra/backend.yaml (function URL in front, Aurora Serverless v2 behind), run
+# infra/backend.yaml (function URL in front, RDS PostgreSQL behind), run
 # migrations, and write the API URL into .env for deploy-frontend.sh to build
 # against.
 #
@@ -117,7 +117,7 @@ print(",".join(s["SubnetId"] for s in subnets if s["AvailabilityZoneId"] not in 
 fi
 
 if [[ "${AWS_SUBNET_IDS}" != *,* ]]; then
-  die "Aurora needs subnets in at least two availability zones"
+  die "RDS needs subnets in at least two availability zones"
 fi
 
 # --- ecr --------------------------------------------------------------------
@@ -169,7 +169,7 @@ docker buildx build \
 
 # --- database password ------------------------------------------------------
 
-# CloudFormation composes DATABASE_URL from this password and the Aurora
+# CloudFormation composes DATABASE_URL from this password and the database
 # endpoint, so it has to stay the same across deploys. Read it back from the
 # secret the stack already owns; only mint a new one on the very first run.
 DB_PASSWORD=""
@@ -228,9 +228,8 @@ DB_NAME="${DB_NAME:-${POSTGRES_DB:-peach}}" \
 DB_USERNAME="${DB_USERNAME:-${POSTGRES_USER:-peach}}" \
 DB_PASSWORD="${DB_PASSWORD}" \
 DB_ENGINE_VERSION="${DB_ENGINE_VERSION:-}" \
-DB_MIN_CAPACITY="${DB_MIN_CAPACITY:-}" \
-DB_MAX_CAPACITY="${DB_MAX_CAPACITY:-}" \
-DB_SECONDS_UNTIL_AUTO_PAUSE="${DB_SECONDS_UNTIL_AUTO_PAUSE:-}" \
+DB_INSTANCE_CLASS="${DB_INSTANCE_CLASS:-}" \
+DB_ALLOCATED_STORAGE="${DB_ALLOCATED_STORAGE:-}" \
 APP_ENV="${APP_ENV_AWS:-production}" \
 LOG_LEVEL="${LOG_LEVEL:-info}" \
 CORS_ORIGINS="${API_CORS_ORIGINS:-}" \
@@ -252,9 +251,8 @@ params = {
     "DbUsername": os.environ["DB_USERNAME"],
     "DbPassword": os.environ["DB_PASSWORD"],
     "DbEngineVersion": os.environ["DB_ENGINE_VERSION"],
-    "DbMinCapacity": os.environ["DB_MIN_CAPACITY"],
-    "DbMaxCapacity": os.environ["DB_MAX_CAPACITY"],
-    "DbSecondsUntilAutoPause": os.environ["DB_SECONDS_UNTIL_AUTO_PAUSE"],
+    "DbInstanceClass": os.environ["DB_INSTANCE_CLASS"],
+    "DbAllocatedStorage": os.environ["DB_ALLOCATED_STORAGE"],
     "AppEnv": os.environ["APP_ENV"],
     "LogLevel": os.environ["LOG_LEVEL"],
     "CorsOrigins": os.environ["CORS_ORIGINS"],
@@ -279,7 +277,7 @@ with open(sys.argv[1], "w") as fh:
 PY
 
 if ! aws cloudformation describe-stacks --stack-name "${STACK_NAME}" >/dev/null 2>&1; then
-  log "first deploy - creating ${STACK_NAME} (Aurora takes around 10 minutes)"
+  log "first deploy - creating ${STACK_NAME} (the database takes around 10 minutes)"
 else
   log "updating ${STACK_NAME}"
 fi
@@ -309,7 +307,6 @@ FUNCTION_NAME="$(outputs FunctionName)"
 # --- migrate ----------------------------------------------------------------
 
 # A direct invoke, not a request through the URL - see app/lambda_handler.py.
-# If Aurora is paused, this is also what wakes it.
 log "applying migrations"
 aws lambda wait function-updated-v2 --function-name "${FUNCTION_NAME}"
 FUNCTION_ERROR="$(aws lambda invoke \

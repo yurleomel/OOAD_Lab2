@@ -57,10 +57,10 @@ deploy-cognito: ## Create/update the Cognito user pool; writes COGNITO_* to .env
 destroy-cognito: ## Delete the Cognito stack, every account in the pool included
 	./scripts/destroy-cognito.sh
 
-deploy-backend: ## Build + push the image, roll the Lambda (function URL + Aurora), migrate, write BACKEND_URL to .env
+deploy-backend: ## Build + push the image, roll the Lambda (function URL + RDS PostgreSQL), migrate, write BACKEND_URL to .env
 	./scripts/deploy-backend.sh
 
-destroy-backend: ## Delete the backend stack, Aurora cluster included
+destroy-backend: ## Delete the backend stack, database included
 	./scripts/destroy-backend.sh
 
 logs-backend: ## Tail the deployed backend's CloudWatch logs

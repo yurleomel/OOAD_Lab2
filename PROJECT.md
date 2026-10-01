@@ -58,7 +58,7 @@ Peach/
 │
 ├── infra/                        # CloudFormation, one template per stack
 │   ├── cognito.yaml              # ★ user pool, app client, hosted domain, optional Google IdP
-│   ├── backend.yaml              # Lambda + function URL + Aurora Serverless v2
+│   ├── backend.yaml              # Lambda + function URL + RDS PostgreSQL (db.t4g.micro)
 │   ├── api-edge.yaml             # ★ CloudFront in front of the function URL, for api.<domain>
 │   ├── frontend.yaml             # private S3 bucket + CloudFront (+ app.<domain>)
 │   └── github-oidc.yaml          # the role GitHub Actions assumes (extended: S3 + CloudFront)
@@ -146,7 +146,7 @@ A folder that cannot be explained in one line does not belong here.
 | pnpm | 10.34.5 | `packageManager` in `package.json` |
 | Next.js / React | 16.3.4 / 19.2.8 | `package.json`, locked in `pnpm-lock.yaml` |
 | PostgreSQL (local) | 17 | `postgres:17-alpine` |
-| PostgreSQL (AWS) | Aurora PostgreSQL 17.4 | `DbEngineVersion` in `infra/backend.yaml` |
+| PostgreSQL (AWS) | RDS PostgreSQL 17.6 | `DbEngineVersion` in `infra/backend.yaml` |
 | GitHub Actions | major tags | `actions/checkout@v4`, `aws-actions/configure-aws-credentials@v4`, … |
 
 No `latest` anywhere an image or package is chosen.
@@ -439,14 +439,14 @@ Everything in **us-east-1**, every resource tagged `PROJECT_NAME=peach`. Created
 ```
 browser ─► app.<domain> ─► CloudFront ─► private S3 bucket          (frontend)
 browser ─► api.<domain> ─► CloudFront ─► Lambda function URL        (backend)
-                                          └─► Lambda (FastAPI, in VPC) ─► Aurora Serverless v2
+                                          └─► Lambda (FastAPI, in VPC) ─► RDS PostgreSQL
 browser ─► Cognito (sign-in, token refresh)
 ```
 
 | Stack | Template | Contains | Created by |
 |---|---|---|---|
 | `peach-cognito` ★ | `cognito.yaml` | user pool, app client, hosted domain, Google IdP (optional) | `make deploy-cognito` |
-| `peach-backend` | `backend.yaml` | Lambda + function URL, Aurora Serverless v2 (scales to 0), security groups, DB secret, logs | `make deploy-backend` |
+| `peach-backend` | `backend.yaml` | Lambda + function URL, RDS PostgreSQL `db.t4g.micro` (20 GiB), security groups, DB secret, logs | `make deploy-backend` |
 | `peach-api-edge` ★ | `api-edge.yaml` | CloudFront distribution in front of the function URL, `api.<domain>` alias | `make domain-backend` |
 | `peach-frontend` | `frontend.yaml` | private bucket, origin access control, clean-URL rewrite function, distribution, `app.<domain>` alias | `make deploy-frontend`, `make domain` |
 | `peach-github-oidc` | `github-oidc.yaml` | OIDC provider, deploy role | `make github-role` |
@@ -480,8 +480,13 @@ records; otherwise they print them and wait until they resolve.
 
 **Teardown**, in this order: `make destroy-frontend`, `make destroy-backend-domain` ★,
 `make destroy-backend`, `make destroy-cognito`, then delete the certificates and the
-`peach-github-oidc` stack. Nothing here bills by the hour while idle except Aurora's storage and
-one Secrets Manager secret (~$0.50/month together).
+`peach-github-oidc` stack. On the AWS Free plan all of it is covered; on a paid plan after the
+free allowance, the micro database is the one thing billing by the hour (~$12/month), plus one
+Secrets Manager secret ($0.40/month).
+
+**Why RDS and not Aurora Serverless** (the course template's choice): an account on the AWS Free
+plan may create Aurora only with "express configuration", a flag CloudFormation has no property
+for. A single `db.t4g.micro` instance is inside the Free plan and keeps everything in one stack.
 
 ---
 

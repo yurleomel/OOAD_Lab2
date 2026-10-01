@@ -15,7 +15,7 @@ upstream repository and are being written here.
 | AWS: backend on Lambda + RDS PostgreSQL, site on S3 + CloudFront | live - site https://d6qjoq19m7ta0.cloudfront.net, API https://ama23qrervq2gu4uepqxl7jcce0stitq.lambda-url.us-east-1.on.aws; Cognito sign-in checked end to end |
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
-| CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | role and variables in place; `deploy.yml` arrives with PR #3, whose merge is its first run |
+| CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | in place; the first run on `main` failed on the OIDC subject, fixed in `fix/oidc-subject` |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | not started - no domain yet |
 
 ## Running
@@ -50,6 +50,11 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
 - The AWS account is on the **Free plan**: Aurora can only be created with "express configuration"
   (no CloudFormation property - hence RDS `db.t4g.micro`), and Route 53 cannot register domains
   (buy one elsewhere; Route 53 DNS zones and ACM do work).
+- GitHub tokens for this repository carry an **immutable subject**
+  (`repo:yurleomel@<id>/OOAD_Lab2@<id>:...`); `github-role.sh` reads the prefix from the GitHub
+  API. CloudTrail's `AssumeRoleWithWebIdentity` events show the subject a failed run presented.
+- Re-running `make github-role` is safe now; before the fix it deleted the stack's own OIDC
+  provider ("web identity token could not be validated").
 - `make deploy-backend` builds the image locally, so Docker must be running; `deploy-frontend.sh`
   builds with the pnpm pinned in `package.json` (via corepack if PATH has another major).
 - `.env` now carries the pool ids, so a rebuilt local stack signs in through Cognito; blank the

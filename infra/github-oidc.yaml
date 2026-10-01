@@ -19,6 +19,15 @@ Parameters:
     Description: owner/repo, e.g. dobosevych/Peach
     AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
 
+  SubjectPrefix:
+    Type: String
+    Default: ""
+    Description: >-
+      The start of the token's subject, as GitHub writes it for this
+      repository: "repo:owner/repo", or for repositories that use immutable
+      subjects (the default for new ones) "repo:owner@<id>/repo@<id>". Empty
+      means the first form, built from GitHubRepo.
+
   SubjectClaim:
     Type: String
     Default: "ref:refs/heads/main"
@@ -36,6 +45,7 @@ Parameters:
 
 Conditions:
   CreateProvider: !Equals [!Ref ExistingProviderArn, ""]
+  NamedSubject: !Equals [!Ref SubjectPrefix, ""]
 
 Resources:
   # Thumbprints are no longer what AWS checks for this issuer - it validates
@@ -79,7 +89,10 @@ Resources:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
                 # And without this, any repository on GitHub would do.
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:${SubjectClaim}"
+                token.actions.githubusercontent.com:sub: !If
+                  - NamedSubject
+                  - !Sub "repo:${GitHubRepo}:${SubjectClaim}"
+                  - !Sub "${SubjectPrefix}:${SubjectClaim}"
       Policies:
         # Deliberately not AdministratorAccess. Scoped to the services the
         # deploy actually drives, and to this project's names where the API

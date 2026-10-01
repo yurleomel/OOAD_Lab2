@@ -1,11 +1,9 @@
 name: CI
 
 # Lint and test both sides. Pull requests run it before anything reaches main;
-# pushes to main run it on what was merged. deploy.yml will call it too, so a
-# deploy never ships a commit these checks have not passed.
+# on main, deploy.yml calls it first, so a deploy never ships a commit these
+# checks have not passed.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_call:
 

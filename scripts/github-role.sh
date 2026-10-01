@@ -96,8 +96,16 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   log "setting repository variables with gh"
   gh variable set AWS_DEPLOY_ROLE_ARN --repo "${REPO}" --body "${ROLE_ARN}"
   gh variable set AWS_REGION --repo "${REPO}" --body "${AWS_REGION}"
+  # The frontend job compiles the pool ids in; none of them is secret.
+  for var in COGNITO_REGION COGNITO_CLIENT_ID COGNITO_DOMAIN COGNITO_GOOGLE_ENABLED; do
+    if [[ -n "${!var:-}" ]]; then
+      gh variable set "${var}" --repo "${REPO}" --body "${!var}"
+    fi
+  done
+  [[ -n "${COGNITO_CLIENT_ID:-}" ]] \
+    || warn "COGNITO_* not in .env - run make deploy-cognito, then this again, or the site cannot build"
   echo
-  echo "  Done. Write \"deploy\" in a commit message on main and the backend ships."
+  echo "  Done. Every push to main now runs .github/workflows/deploy.yml."
 else
   echo
   echo "  gh is not installed or not logged in. Set these two repository"
@@ -105,5 +113,8 @@ else
   echo
   echo "    AWS_DEPLOY_ROLE_ARN = ${ROLE_ARN}"
   echo "    AWS_REGION          = ${AWS_REGION}"
+  for var in COGNITO_REGION COGNITO_CLIENT_ID COGNITO_DOMAIN COGNITO_GOOGLE_ENABLED; do
+    printf '    %-19s = %s\n' "${var}" "${!var:-}"
+  done
   echo
 fi

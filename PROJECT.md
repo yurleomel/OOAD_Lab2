@@ -543,9 +543,11 @@ any branch or pull request. The role's policy is scoped to the services the depl
 `AdministratorAccess`. Credentials expire with the job.
 
 **Repository variables** (not secrets — useless without a token minted by this repository):
-`AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `PROJECT_NAME`, and for the frontend build `BACKEND_URL`,
-`COGNITO_REGION`, `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN`, `COGNITO_GOOGLE_ENABLED`. CI has no
-`.env`; parameters it leaves empty keep the stack's current values.
+`AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, and for the frontend build `COGNITO_REGION`,
+`COGNITO_CLIENT_ID`, `COGNITO_DOMAIN`, `COGNITO_GOOGLE_ENABLED` — `make github-role` sets them all
+from `.env`, so run it after `make deploy-cognito`. Optional: `PROJECT_NAME`, and `BACKEND_URL`
+once the API has its own domain; without it the frontend job reads the backend stack's `ApiUrl`.
+CI has no `.env`; parameters it leaves empty keep the stack's current values.
 
 ---
 

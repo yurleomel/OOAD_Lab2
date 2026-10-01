@@ -1,0 +1,117 @@
+name: Deploy
+
+# Every push to main ships both halves, in order: the same checks as a pull
+# request, then the API, then the site built against it. Nothing deploys
+# unless the checks pass. Runs by hand from the Actions tab too.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one halfway: an interrupted
+# CloudFormation update is worse than a queued one.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'peach' }}
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  backend:
+    name: Backend (Lambda)
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      # The OIDC token AWS trades for the deploy role. No stored keys.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-backend-${{ github.run_id }}
+
+      # The function runs on arm64 and this runner is x86, so the image is
+      # built under emulation.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # The image is tagged with the commit SHA. There is no .env here: every
+      # setting the script leaves empty keeps the stack's current value, so CI
+      # never resets CORS or the Cognito keys set from a laptop.
+      - name: make deploy-backend
+        run: make deploy-backend
+
+  frontend:
+    name: Frontend (S3 + CloudFront)
+    needs: backend
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-frontend-${{ github.run_id }}
+
+      # The custom API domain once there is one, else the function URL the
+      # backend stack reports.
+      - name: Resolve the API URL
+        env:
+          CONFIGURED: ${{ vars.BACKEND_URL }}
+        run: |
+          url="${CONFIGURED}"
+          if [ -z "${url}" ]; then
+            url="$(aws cloudformation describe-stacks --stack-name "${PROJECT_NAME}-backend" \
+              --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)"
+          fi
+          echo "BACKEND_URL=${url%/}" >> "${GITHUB_ENV}"
+
+      # The pool ids are compiled into the bundle; none of them is secret.
+      - name: make deploy-frontend
+        run: make deploy-frontend
+        env:
+          COGNITO_REGION: ${{ vars.COGNITO_REGION }}
+          COGNITO_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
+          COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
+          COGNITO_GOOGLE_ENABLED: ${{ vars.COGNITO_GOOGLE_ENABLED || 'false' }}
+
+      - name: Summary
+        if: always()
+        run: |
+          site="$(aws cloudformation describe-stacks --stack-name "${PROJECT_NAME}-frontend" \
+            --query "Stacks[0].Outputs[?OutputKey=='SiteUrl'].OutputValue" --output text 2>/dev/null || echo unknown)"
+          {
+            echo "### Deploy"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| commit | \`${GITHUB_SHA::12}\` |"
+            echo "| site | ${site} |"
+            echo "| api | ${BACKEND_URL:-unknown} |"
+            echo "| result | ${{ job.status }} |"
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -11,10 +11,12 @@ upstream repository and are being written here.
 | Backend: auth, users, `/me`, migration `0003`, local sign-in, tests | done — `pytest` 46 passed |
 | Frontend: `lib/auth.ts`, sign-in pages, `AuthGate`, `task-dashboard`, List view, ClickUp-style redesign | done — vitest 53 passed, static export builds |
 | Local run: `docker compose up --build` with local sign-in (no AWS) | done — verified in a browser: sign in, add, reload, per-user isolation |
-| Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | written, passes `cfn-lint`; not deployed yet |
+| Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | deployed (pool `us-east-1_qEVU77JkT`) |
+| AWS: backend on Lambda + RDS PostgreSQL, site on S3 + CloudFront | live - site https://d6qjoq19m7ta0.cloudfront.net, API https://ama23qrervq2gu4uepqxl7jcce0stitq.lambda-url.us-east-1.on.aws; Cognito sign-in checked end to end |
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
-| CD: `deploy.yml`, S3/CloudFront rights on the OIDC role | not started (needs AWS) |
+| CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | role and variables in place; `deploy.yml` arrives with PR #3, whose merge is its first run |
+| Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | not started - no domain yet |
 
 ## Running
 
@@ -45,5 +47,12 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
   `tests/setup.ts`); set `location.pathname` / `location.search` there and assert on `router`.
 - `components/ui/*` stays as generated; restyle at the call site (see `inputClass` in
   `components/auth-layout.tsx`) or through the tokens in `app/globals.css`.
+- The AWS account is on the **Free plan**: Aurora can only be created with "express configuration"
+  (no CloudFormation property - hence RDS `db.t4g.micro`), and Route 53 cannot register domains
+  (buy one elsewhere; Route 53 DNS zones and ACM do work).
+- `make deploy-backend` builds the image locally, so Docker must be running; `deploy-frontend.sh`
+  builds with the pnpm pinned in `package.json` (via corepack if PATH has another major).
+- `.env` now carries the pool ids, so a rebuilt local stack signs in through Cognito; blank the
+  `COGNITO_*` lines to get local sign-in back.
 - Remotes: `origin` is the student repository, `upstream` is the course repository. Never push to
   `upstream`.

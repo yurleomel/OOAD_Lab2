@@ -13,7 +13,8 @@ upstream repository and are being written here.
 | Local run: `docker compose up --build` with local sign-in (no AWS) | done — verified in a browser: sign in, add, reload, per-user isolation |
 | Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | written, passes `cfn-lint`; not deployed yet |
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
-| CI/CD: `ci.yml`, `deploy.yml`, S3/CloudFront rights on the OIDC role | not started |
+| CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
+| CD: `deploy.yml`, S3/CloudFront rights on the OIDC role | not started (needs AWS) |
 
 ## Running
 

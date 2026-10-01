@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Peach sign-in: a Cognito user pool (email is the username), one public app
+  Lanora sign-in: a Cognito user pool (email is the username), one public app
   client for the browser, a hosted domain for the OAuth redirect, and Google as
   an optional identity provider. Deployed by scripts/deploy-cognito.sh.
 
@@ -55,8 +55,8 @@ Resources:
             Priority: 1
       VerificationMessageTemplate:
         DefaultEmailOption: CONFIRM_WITH_CODE
-        EmailSubject: Your Peach confirmation code
-        EmailMessage: "Your Peach confirmation code is {####}"
+        EmailSubject: Your Lanora confirmation code
+        EmailMessage: "Your Lanora confirmation code is {####}"
       # Cognito's own sender: no SES setup, about 50 emails a day - enough for
       # a course project.
       EmailConfiguration:

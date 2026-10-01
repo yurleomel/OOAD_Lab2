@@ -221,7 +221,7 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (!data.AuthenticationResult?.RefreshToken) {
     throw new AuthError(
       data.ChallengeName ?? "UnsupportedChallenge",
-      "This account needs a sign-in step Peach does not support.",
+      "This account needs a sign-in step Lanora does not support.",
     );
   }
   saveSession(

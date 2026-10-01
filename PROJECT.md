@@ -13,6 +13,11 @@ and are generated from this specification.
 
 ## 1. What Peach is
 
+The product is called **Lanora** - that is the name on the site, in the sign-in emails and on the
+API's docs. "Peach" stays the repository's internal codename: AWS resource names (`peach-*`),
+`PROJECT_NAME`, browser storage keys - renaming those would recreate the infrastructure for
+nobody's benefit.
+
 A personal task board. A person signs in, keeps tasks in three columns (To do, In progress, Done)
 and sees their progress on a dashboard. Every task belongs to exactly one person; nobody sees
 anyone else's tasks.

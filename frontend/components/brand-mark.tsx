@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Peach's own mark: a "P" on the warm brand gradient. */
+/** Lanora's own mark: an "L" on the warm brand gradient. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <span
@@ -10,7 +10,7 @@ export function BrandMark({ className }: { className?: string }) {
         className,
       )}
     >
-      P
+      L
     </span>
   );
 }

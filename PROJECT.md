@@ -478,6 +478,13 @@ CloudFront accepts) and are free. DNS records, four in total:
 CloudFront redirects HTTP to HTTPS on both. With the zone in Route 53 the scripts write all four
 records; otherwise they print them and wait until they resolve.
 
+This deployment: **`https://app.mylanora.world`** (site) and **`https://api.mylanora.world`**
+(API), DNS at Namecheap, the four CNAMEs added there by hand. `make domain DOMAIN=app.…` and
+`make domain-backend DOMAIN=api.…` request or reuse the certificates (shared code in
+`scripts/lib/domain.sh`), print each record and wait for it; `domain-backend` also points
+`BACKEND_URL` - in `.env` and the repository variable - at the API's domain, and
+`deploy-backend` keeps it there.
+
 **Teardown**, in this order: `make destroy-frontend`, `make destroy-backend-domain` ★,
 `make destroy-backend`, `make destroy-cognito`, then delete the certificates and the
 `peach-github-oidc` stack. On the AWS Free plan all of it is covered; on a paid plan after the

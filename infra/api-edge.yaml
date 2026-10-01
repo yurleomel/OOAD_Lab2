@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  A custom domain, with HTTPS, in front of the Peach API. A Lambda function URL
+  cannot carry a domain of its own, so a CloudFront distribution answers on it
+  and passes every request through to the function URL - nothing is cached.
+  Deployed by scripts/domain-backend.sh (make domain-backend).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: peach
+
+  DomainName:
+    Type: String
+    Description: The API's domain, e.g. api.example.com.
+
+  AcmCertificateArn:
+    Type: String
+    Description: An ISSUED certificate for DomainName, in us-east-1.
+
+  OriginDomain:
+    Type: String
+    Description: >-
+      The function URL's host name, from the backend stack's ApiUrl output.
+
+  HostedZoneId:
+    Type: String
+    Default: ""
+    Description: >-
+      The Route 53 zone DomainName sits in, when there is one; the stack then
+      owns the alias records. Empty when DNS lives elsewhere.
+
+Conditions:
+  HasHostedZone: !Not [!Equals [!Ref HostedZoneId, ""]]
+
+Resources:
+  # Responses are per-person, so nothing may be cached. A policy with all TTLs
+  # at zero cannot name headers, and CloudFront then drops Authorization on
+  # GET; a one-second ceiling keeps Authorization in the key and forwarded,
+  # and since the API sends no Cache-Control, nothing is stored anyway.
+  PassThroughCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub "${ProjectName}-api-pass-through"
+        Comment: Forward Authorization and the query string, cache nothing
+        DefaultTTL: 0
+        MinTTL: 0
+        MaxTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: false
+          EnableAcceptEncodingBrotli: false
+          HeadersConfig:
+            HeaderBehavior: whitelist
+            Headers: [Authorization]
+          CookiesConfig:
+            CookieBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: all
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${ProjectName} API on ${DomainName}"
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Aliases: [!Ref DomainName]
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: function-url
+            DomainName: !Ref OriginDomain
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+              OriginReadTimeout: 30
+        DefaultCacheBehavior:
+          TargetOriginId: function-url
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          Compress: false
+          CachePolicyId: !Ref PassThroughCachePolicy
+          # Managed-AllViewerExceptHostHeader: Origin, Content-Type and the
+          # rest reach the function, but not Host - a function URL answers
+          # only to its own name.
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+      Tags:
+        - Key: PROJECT_NAME
+          Value: !Ref ProjectName
+
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: HasHostedZone
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        # Every CloudFront distribution lives in this one zone.
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
+
+  DnsRecordIpv6:
+    Type: AWS::Route53::RecordSet
+    Condition: HasHostedZone
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
+
+Outputs:
+  ApiUrl:
+    Value: !Sub "https://${DomainName}"
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName

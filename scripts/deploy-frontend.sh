@@ -44,13 +44,18 @@ done
 aws sts get-caller-identity >/dev/null 2>&1 \
   || die "no usable AWS credentials - set AWS_PROFILE or the AWS_* keys in .env"
 
-# package.json pins pnpm, which may or may not be on PATH.
-if command -v pnpm >/dev/null 2>&1; then
+# package.json pins pnpm. A pnpm already on PATH is used only when it is the
+# same major version - pnpm 9 rejects this lockfile and workspace file - and
+# otherwise corepack fetches exactly the pinned one.
+PNPM_PIN="$(sed -nE 's/.*"packageManager": *"pnpm@([0-9.]+)".*/\1/p' "${APP}/package.json")"
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+if command -v pnpm >/dev/null 2>&1 \
+  && [[ "$(pnpm --version 2>/dev/null | cut -d. -f1)" == "${PNPM_PIN%%.*}" ]]; then
   PM=(pnpm)
 elif command -v corepack >/dev/null 2>&1; then
   PM=(corepack pnpm)
 else
-  PM=(npx --yes pnpm@10)
+  PM=(npx --yes "pnpm@${PNPM_PIN:-10}")
 fi
 
 # --- which API does this build talk to? -------------------------------------

@@ -53,7 +53,7 @@ Peach/
 ├── Makefile                      # the local and deploy contract (§13)
 │
 ├── .github/workflows/
-│   ├── ci.yml                    # ★ lint + tests on every push and PR (replaces lint.yml)
+│   ├── ci.yml                    # ★ lint + tests on every PR and push to main (replaces lint.yml)
 │   └── deploy.yml                # ★ on push to main: checks -> backend -> frontend (replaces deploy-backend.yml)
 │
 ├── infra/                        # CloudFormation, one template per stack
@@ -505,8 +505,8 @@ CI has no recipe of its own: it runs these targets, so a failed deploy is debugg
 
 ## 14. CI/CD ★
 
-**`ci.yml`** — on every pull request and every push to a branch other than `main`; also callable
-by `deploy.yml`. Jobs in parallel:
+**`ci.yml`** — on every pull request and every push to `main`; also callable by `deploy.yml`
+(which then takes over the push to `main`). Jobs in parallel:
 
 | Job | Runs |
 |---|---|

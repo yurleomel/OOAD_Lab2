@@ -46,8 +46,17 @@ fi
 
 SUBJECT_CLAIM="${GITHUB_SUBJECT_CLAIM:-ref:refs/heads/main}"
 
+# New repositories get immutable subjects - repo:owner@<id>/repo@<id>:... - so
+# a rename cannot hand the role to whoever takes the old name. Ask GitHub which
+# form this repository's tokens carry; without gh, assume the named form.
+SUBJECT_PREFIX=""
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  SUBJECT_PREFIX="$(gh api "repos/${REPO}/actions/oidc/customization/sub" \
+    --jq '.sub_claim_prefix // empty' 2>/dev/null || true)"
+fi
+
 log "repository ${REPO}"
-log "trusting only runs matching repo:${REPO}:${SUBJECT_CLAIM}"
+log "trusting only runs matching ${SUBJECT_PREFIX:-repo:${REPO}}:${SUBJECT_CLAIM}"
 
 # --- the account may already have a GitHub provider ---------------------------
 
@@ -57,7 +66,16 @@ EXISTING_PROVIDER="$(aws iam list-open-id-connect-providers \
   --output text 2>/dev/null || true)"
 [[ "${EXISTING_PROVIDER}" == "None" ]] && EXISTING_PROVIDER=""
 
-if [[ -n "${EXISTING_PROVIDER}" ]]; then
+# A provider this very stack created on an earlier run is not "existing": pass
+# it back as ExistingProviderArn and CloudFormation deletes it - and with it
+# every role that trusts it. Keep the stack owning what it already owns.
+OWN_PROVIDER="$(aws cloudformation describe-stack-resource --stack-name "${STACK_NAME}" \
+  --logical-resource-id OidcProvider \
+  --query StackResourceDetail.PhysicalResourceId --output text 2>/dev/null || true)"
+if [[ -n "${EXISTING_PROVIDER}" && "${EXISTING_PROVIDER}" == "${OWN_PROVIDER}" ]]; then
+  EXISTING_PROVIDER=""
+  log "the GitHub OIDC provider is this stack's own - keeping it"
+elif [[ -n "${EXISTING_PROVIDER}" ]]; then
   log "reusing the GitHub OIDC provider already in this account"
 else
   log "this account has no GitHub OIDC provider yet - the stack creates one"
@@ -71,6 +89,7 @@ if ! aws cloudformation deploy \
   --parameter-overrides \
     "ProjectName=${PROJECT_NAME}" \
     "GitHubRepo=${REPO}" \
+    "SubjectPrefix=${SUBJECT_PREFIX}" \
     "SubjectClaim=${SUBJECT_CLAIM}" \
     "ExistingProviderArn=${EXISTING_PROVIDER}" \
   --capabilities CAPABILITY_NAMED_IAM \

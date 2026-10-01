@@ -534,11 +534,14 @@ lets that token assume the deploy role only when
 
 ```
 aud = sts.amazonaws.com
-sub = repo:yurleomel/OOAD_Lab2:ref:refs/heads/main
+sub = repo:yurleomel@136835680/OOAD_Lab2@1398618416:ref:refs/heads/main
 ```
 
 — this repository, this branch, nothing else. A wildcard in `sub` would hand the AWS account to
-any branch or pull request. The role's policy is scoped to the services the deploy drives
+any branch or pull request. The ids after `@` are GitHub's immutable account and repository ids,
+which new repositories carry in their tokens: renaming the repository, or someone taking the old
+name, cannot reach the role. `make github-role` asks GitHub which form the repository uses
+(`actions/oidc/customization/sub`) and writes exactly that. The role's policy is scoped to the services the deploy drives
 (★ extended with S3 put/list/delete on the site bucket and `cloudfront:CreateInvalidation`), not
 `AdministratorAccess`. Credentials expire with the job.
 

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AuthCard } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
-import { authConfigured, startHostedSignIn } from "@/lib/auth";
+import { hostedSignInConfigured, startHostedSignIn } from "@/lib/auth";
 
 /** /login: hands the browser to Cognito's managed login page straight away.
  *  The PKCE verifier and state are saved here first, so the callback accepts the code. */
@@ -16,12 +16,12 @@ export function HostedLogin() {
   const started = useRef(false);
 
   useEffect(() => {
-    if (!authConfigured || started.current) return;
+    if (!hostedSignInConfigured || started.current) return;
     started.current = true;
     startHostedSignIn().catch((caught: Error) => setError(caught.message));
   }, []);
 
-  if (!authConfigured || error) {
+  if (!hostedSignInConfigured || error) {
     return (
       <AuthCard
         title="Sign-in is unavailable"

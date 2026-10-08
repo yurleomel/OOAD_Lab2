@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthGate } from "@/components/auth-gate";
+import { AuthLayout } from "@/components/auth-layout";
 import { HostedLogin } from "@/components/hosted-login";
 import { SignInForm } from "@/components/sign-in-form";
 import { SignUpForm } from "@/components/sign-up-form";
@@ -186,6 +187,21 @@ describe("HostedLogin", () => {
     const url = new URL(assign.mock.calls[0][0]);
     expect(url.pathname).toBe("/oauth2/authorize");
     expect(url.searchParams.has("identity_provider")).toBe(false);
-    expect(window.sessionStorage.getItem("peach.pkce")).not.toBeNull();
+    const state = url.searchParams.get("state");
+    expect(window.localStorage.getItem(`oidc.${state}`)).not.toBeNull();
+  });
+});
+
+describe("AuthLayout", () => {
+  it("offers Sign in in the header, pointing at /login", () => {
+    render(
+      <AuthLayout>
+        <p>Card</p>
+      </AuthLayout>,
+    );
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
   });
 });

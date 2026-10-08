@@ -9,10 +9,10 @@ upstream repository and are being written here.
 | Area | State |
 |---|---|
 | Backend: auth, users, `/me`, migration `0003`, local sign-in, tests | done — `pytest` 46 passed |
-| Frontend: `lib/auth.ts`, sign-in pages, `AuthGate`, `task-dashboard`, List view, ClickUp-style redesign | done — vitest 56 passed, static export builds |
+| Frontend: `lib/auth.ts`, sign-in pages, `AuthGate`, `task-dashboard`, List view, ClickUp-style redesign | done — vitest 57 passed, static export builds |
 | Local run: `docker compose up --build` with local sign-in (no AWS) | done — verified in a browser: sign in, add, reload, per-user isolation |
 | Cognito: `infra/cognito.yaml`, `deploy-cognito.sh`, `destroy-cognito.sh` | deployed (pool `us-east-1_qEVU77JkT`, Essentials tier, managed login v2 + default branding, logout URLs) |
-| Lab 4: `/login` opens Cognito's managed login (password + Google); log out goes through the domain's `/logout` | code + Cognito stack done. Google still off: needs `GOOGLE_CLIENT_ID`/`_SECRET` in `.env`, `make deploy-cognito`, repo variable `COGNITO_GOOGLE_ENABLED=true`, then a site deploy |
+| Lab 4: `/login` opens Cognito's managed login (password + Google) via oidc-client-ts; header Sign in on signed-out pages; log out goes through the domain's `/logout` | done - Google enabled (In production), both sign-ins checked on app.mylanora.world. The hosted flow needs `NEXT_PUBLIC_COGNITO_USER_POOL_ID` (repo variable `COGNITO_USER_POOL_ID` for CI) |
 | AWS: backend on Lambda + RDS PostgreSQL, site on S3 + CloudFront | live - site https://app.mylanora.world, API https://api.mylanora.world (behind them d6qjoq19m7ta0.cloudfront.net and the function URL ama23qrervq2gu4uepqxl7jcce0stitq.lambda-url.us-east-1.on.aws); Cognito sign-in checked end to end on both |
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |

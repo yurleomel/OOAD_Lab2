@@ -4,15 +4,15 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  completeGoogleSignIn,
+  completeHostedSignIn,
   getIdToken,
   getSession,
-  googleSignInUrl,
   hostedLogoutUrl,
-  hostedSignInUrl,
   signIn,
   signOut,
   signUp,
+  startGoogleSignIn,
+  startHostedSignIn,
   useSession,
 } from "@/lib/auth";
 import { makeIdToken, signInAs } from "./utils";
@@ -203,10 +203,32 @@ describe("tokens for the API", () => {
   });
 });
 
-describe("Google through the hosted domain", () => {
-  it("builds the authorize URL with a PKCE challenge it can check later", async () => {
-    const url = new URL(await googleSignInUrl());
-    const saved = JSON.parse(window.sessionStorage.getItem("peach.pkce")!);
+describe("the hosted domain, through oidc-client-ts", () => {
+  /** Captures where the library sends the browser instead of navigating. */
+  function captureRedirect() {
+    const assign = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({
+      ...window.location,
+      assign,
+    });
+    // signinRedirect never settles - the page is leaving - so wait for the redirect.
+    return async () => {
+      await vi.waitFor(() => expect(assign).toHaveBeenCalled());
+      return new URL(assign.mock.calls[0][0]);
+    };
+  }
+
+  /** The PKCE verifier oidc-client-ts saved for this state. */
+  function savedVerifier(state: string): string {
+    return JSON.parse(window.localStorage.getItem(`oidc.${state}`)!)
+      .code_verifier;
+  }
+
+  it("starts Google sign-in with a PKCE challenge it can check later", async () => {
+    const redirectedTo = captureRedirect();
+    void startGoogleSignIn();
+    const url = await redirectedTo();
+    const state = url.searchParams.get("state")!;
 
     expect(url.origin).toBe(
       "https://peach-test.auth.us-east-1.amazoncognito.com",
@@ -216,26 +238,22 @@ describe("Google through the hosted domain", () => {
       identity_provider: "Google",
       response_type: "code",
       client_id: "test-client",
-      redirect_uri: `${window.location.origin}/auth/callback`,
-      state: saved.state,
+      scope: "openid email profile",
       code_challenge_method: "S256",
       code_challenge: createHash("sha256")
-        .update(saved.verifier)
+        .update(savedVerifier(state))
         .digest("base64url"),
     });
+    expect(url.searchParams.get("redirect_uri")).toMatch(/\/auth\/callback$/);
   });
 
   it("opens the managed login page when no provider is named", async () => {
-    const url = new URL(await hostedSignInUrl());
+    const redirectedTo = captureRedirect();
+    void startHostedSignIn();
+    const url = await redirectedTo();
 
     expect(url.pathname).toBe("/oauth2/authorize");
     expect(url.searchParams.has("identity_provider")).toBe(false);
-    expect(url.searchParams.get("redirect_uri")).toBe(
-      `${window.location.origin}/auth/callback`,
-    );
-    expect(url.searchParams.get("state")).toBe(
-      JSON.parse(window.sessionStorage.getItem("peach.pkce")!).state,
-    );
   });
 
   it("logs out of the hosted domain back to the site root", () => {
@@ -251,13 +269,11 @@ describe("Google through the hosted domain", () => {
   });
 
   it("refuses a callback for a sign-in it did not start", async () => {
-    window.sessionStorage.setItem(
-      "peach.pkce",
-      JSON.stringify({ verifier: "v", state: "mine" }),
-    );
     const spy = vi.spyOn(globalThis, "fetch");
     await expect(
-      completeGoogleSignIn(new URLSearchParams("code=c&state=theirs")),
+      completeHostedSignIn(
+        `${window.location.origin}/auth/callback?code=c&state=theirs`,
+      ),
     ).rejects.toMatchObject({ code: "StateMismatch" });
     expect(spy).not.toHaveBeenCalled();
     expect(getSession()).toBeNull();
@@ -265,25 +281,39 @@ describe("Google through the hosted domain", () => {
 
   it("surfaces the error Cognito sends back", async () => {
     await expect(
-      completeGoogleSignIn(
-        new URLSearchParams("error=access_denied&error_description=Cancelled"),
+      completeHostedSignIn(
+        `${window.location.origin}/auth/callback?error=access_denied&error_description=Cancelled`,
       ),
     ).rejects.toMatchObject({ message: "Cancelled" });
   });
 
   it("trades the code for tokens with the saved verifier", async () => {
-    window.sessionStorage.setItem(
-      "peach.pkce",
-      JSON.stringify({ verifier: "the-verifier", state: "mine" }),
-    );
-    const spy = cognitoReplies({
-      body: { id_token: makeIdToken(), refresh_token: "r1" },
-    });
+    const redirectedTo = captureRedirect();
+    void startHostedSignIn();
+    const state = (await redirectedTo()).searchParams.get("state")!;
+    const verifier = savedVerifier(state);
+    vi.restoreAllMocks();
 
-    await completeGoogleSignIn(new URLSearchParams("code=c&state=mine"));
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "Content-Type": "application/json" }),
+      text: async () =>
+        JSON.stringify({
+          id_token: makeIdToken(),
+          access_token: "a1",
+          refresh_token: "r1",
+          token_type: "Bearer",
+          expires_in: 3600,
+        }),
+    } as Response);
+
+    await completeHostedSignIn(
+      `${window.location.origin}/auth/callback?code=c&state=${state}`,
+    );
 
     const [url, init] = spy.mock.calls[0];
-    expect(url).toBe(
+    expect(String(url)).toBe(
       "https://peach-test.auth.us-east-1.amazoncognito.com/oauth2/token",
     );
     expect(
@@ -291,9 +321,9 @@ describe("Google through the hosted domain", () => {
     ).toMatchObject({
       grant_type: "authorization_code",
       code: "c",
-      code_verifier: "the-verifier",
+      code_verifier: verifier,
     });
     expect(getSession()?.email).toBe("alice@example.com");
-    expect(window.sessionStorage.getItem("peach.pkce")).toBeNull();
+    expect(window.localStorage.getItem(`oidc.${state}`)).toBeNull();
   });
 });

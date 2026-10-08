@@ -2,16 +2,15 @@
 
 import { LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { AuthCard } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
-import { completeGoogleSignIn } from "@/lib/auth";
+import { completeHostedSignIn } from "@/lib/auth";
 
 /** Where the hosted domain sends the browser back after sign-in. */
 export function AuthCallback() {
-  const params = useSearchParams();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   // An authorization code works once; Strict Mode must not spend it twice.
@@ -20,10 +19,10 @@ export function AuthCallback() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    completeGoogleSignIn(new URLSearchParams(params.toString()))
+    completeHostedSignIn(window.location.href)
       .then(() => router.replace("/home"))
       .catch((caught: Error) => setError(caught.message));
-  }, [params, router]);
+  }, [router]);
 
   if (error) {
     return (

@@ -4,32 +4,25 @@
  * Email + password use Cognito's public API (InitiateAuth, SignUp, ...), which
  * an app client without a secret may call directly. Google, and the managed
  * login page that /login opens, go through the pool's hosted domain with the
- * OAuth code flow + PKCE. Tokens live in
+ * OAuth code flow + PKCE, driven by oidc-client-ts. Tokens live in
  * localStorage; the ID token is what the API accepts, and it is renewed from
  * the refresh token a minute before it expires.
  *
  * None of this is a security boundary - the API checks every token itself.
  */
+import { UserManager } from "oidc-client-ts";
 import { useSyncExternalStore } from "react";
 
-const config = {
-  region: process.env.NEXT_PUBLIC_COGNITO_REGION || "us-east-1",
-  clientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "",
-  domain: (process.env.NEXT_PUBLIC_COGNITO_DOMAIN ?? "").replace(
-    /^https?:\/\//,
-    "",
-  ),
-  googleEnabled: process.env.NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED === "true",
-};
+import {
+  authConfigured,
+  config,
+  googleEnabled,
+  hostedSignInConfigured,
+} from "@/lib/auth-config";
 
-/** False until make deploy-cognito has written the pool ids and the app was rebuilt.
- *  Until then the app signs in locally, against the API's own development key. */
-export const authConfigured = Boolean(config.clientId);
-export const googleEnabled =
-  authConfigured && config.googleEnabled && Boolean(config.domain);
+export { authConfigured, googleEnabled, hostedSignInConfigured };
 
 const STORAGE_KEY = "peach.session";
-const PKCE_KEY = "peach.pkce";
 const REFRESH_MARGIN_MS = 60_000;
 
 export type Session = { sub: string; email: string; name: string };
@@ -355,56 +348,49 @@ export function signOut() {
 
 /* --- The hosted domain: managed login and Google ------------------------- */
 
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
+let userManager: UserManager | null = null;
 
-function randomString(byteCount: number): string {
-  return base64Url(crypto.getRandomValues(new Uint8Array(byteCount)));
-}
-
-function redirectUri(): string {
-  return `${window.location.origin}/auth/callback`;
+/**
+ * oidc-client-ts does the code flow: it keeps state + the PKCE verifier in
+ * sessionStorage, redirects, checks the state on the way back and trades the
+ * code for tokens. The endpoints are given rather than discovered, so sign-in
+ * starts without a round trip; they are what the pool's discovery document lists.
+ */
+function oidc(): UserManager {
+  const authority = `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`;
+  const origin = `https://${config.domain}`;
+  userManager ??= new UserManager({
+    authority,
+    client_id: config.clientId,
+    redirect_uri: `${window.location.origin}/auth/callback`,
+    response_type: "code",
+    scope: "openid email profile",
+    metadata: {
+      issuer: authority,
+      authorization_endpoint: `${origin}/oauth2/authorize`,
+      token_endpoint: `${origin}/oauth2/token`,
+      userinfo_endpoint: `${origin}/oauth2/userInfo`,
+      revocation_endpoint: `${origin}/oauth2/revoke`,
+      jwks_uri: `${authority}/.well-known/jwks.json`,
+    },
+    // The session store below renews tokens; the library only signs in.
+    automaticSilentRenew: false,
+  });
+  return userManager;
 }
 
 /**
- * The hosted-domain URL that starts a sign-in; remembers the PKCE verifier.
- * With a provider it goes straight there; without one it opens the managed
- * login page (email + password, or Continue with Google).
+ * Sends the browser to the hosted domain. With a provider it goes straight
+ * there; without one it opens the managed login page (email + password, or
+ * Continue with Google).
  */
-export async function hostedSignInUrl(provider?: "Google"): Promise<string> {
-  const verifier = randomString(48);
-  const state = randomString(16);
-  window.sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state }));
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(verifier),
+export async function startHostedSignIn(provider?: "Google"): Promise<void> {
+  await oidc().signinRedirect(
+    provider ? { extraQueryParams: { identity_provider: provider } } : {},
   );
-  const params = new URLSearchParams({
-    ...(provider ? { identity_provider: provider } : {}),
-    response_type: "code",
-    client_id: config.clientId,
-    redirect_uri: redirectUri(),
-    scope: "openid email profile",
-    state,
-    code_challenge: base64Url(new Uint8Array(digest)),
-    code_challenge_method: "S256",
-  });
-  return `https://${config.domain}/oauth2/authorize?${params}`;
 }
 
-export const googleSignInUrl = () => hostedSignInUrl("Google");
-
-export async function startGoogleSignIn(): Promise<void> {
-  window.location.assign(await googleSignInUrl());
-}
-
-export async function startHostedSignIn(): Promise<void> {
-  window.location.assign(await hostedSignInUrl());
-}
+export const startGoogleSignIn = () => startHostedSignIn("Google");
 
 /**
  * Where to send the browser on log out, or null to stay in the app. Cognito
@@ -421,45 +407,33 @@ export function hostedLogoutUrl(): string | null {
 }
 
 /** Finishes the redirect from the hosted domain: checks state, trades the code for tokens. */
-export async function completeGoogleSignIn(
-  params: URLSearchParams,
-): Promise<void> {
-  const failure = params.get("error_description") ?? params.get("error");
-  if (failure) throw new AuthError("OAuthError", failure);
+export async function completeHostedSignIn(url: string): Promise<void> {
+  const failure = new URL(url).searchParams;
+  const reason = failure.get("error_description") ?? failure.get("error");
+  if (reason) throw new AuthError("OAuthError", reason);
 
-  const saved = window.sessionStorage.getItem(PKCE_KEY);
-  window.sessionStorage.removeItem(PKCE_KEY);
-  const pkce = saved
-    ? (JSON.parse(saved) as { verifier: string; state: string })
-    : null;
-  const code = params.get("code");
-  if (!code || !pkce || pkce.state !== params.get("state")) {
-    throw new AuthError(
-      "StateMismatch",
-      "This sign-in link has expired. Start again.",
-    );
+  let user;
+  try {
+    user = await oidc().signinRedirectCallback(url);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    throw message.includes("No matching state")
+      ? new AuthError(
+          "StateMismatch",
+          "This sign-in link has expired. Start again.",
+        )
+      : new AuthError(
+          "TokenExchangeFailed",
+          "Sign-in could not be completed. Try again.",
+        );
   }
-
-  const response = await fetch(`https://${config.domain}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: config.clientId,
-      code,
-      redirect_uri: redirectUri(),
-      code_verifier: pkce.verifier,
-    }),
-  }).catch(() => null);
-  if (!response?.ok) {
+  if (!user.id_token) {
     throw new AuthError(
-      "TokenExchangeFailed",
+      "NoTokens",
       "Sign-in could not be completed. Try again.",
     );
   }
-  const tokens = (await response.json()) as {
-    id_token: string;
-    refresh_token: string;
-  };
-  saveSession(tokens.id_token, tokens.refresh_token);
+  saveSession(user.id_token, user.refresh_token ?? "");
+  // The tokens now live in the session store; drop the library's copy.
+  await oidc().removeUser();
 }

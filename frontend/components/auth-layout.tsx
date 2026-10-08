@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { hostedSignInConfigured } from "@/lib/auth-config";
 
 /** White, bordered fields for the auth cards and the task dialog. */
 export const inputClass =
@@ -19,6 +21,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <BrandMark />
           Lanora
         </Link>
+        {hostedSignInConfigured && (
+          <Button asChild size="sm" className="ml-auto rounded-lg">
+            <Link href="/login">Sign in</Link>
+          </Button>
+        )}
       </header>
       <main className="grid flex-1 place-items-center px-4 py-10">
         {children}

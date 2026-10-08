@@ -8,6 +8,8 @@ import {
   getIdToken,
   getSession,
   googleSignInUrl,
+  hostedLogoutUrl,
+  hostedSignInUrl,
   signIn,
   signOut,
   signUp,
@@ -220,6 +222,31 @@ describe("Google through the hosted domain", () => {
       code_challenge: createHash("sha256")
         .update(saved.verifier)
         .digest("base64url"),
+    });
+  });
+
+  it("opens the managed login page when no provider is named", async () => {
+    const url = new URL(await hostedSignInUrl());
+
+    expect(url.pathname).toBe("/oauth2/authorize");
+    expect(url.searchParams.has("identity_provider")).toBe(false);
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      `${window.location.origin}/auth/callback`,
+    );
+    expect(url.searchParams.get("state")).toBe(
+      JSON.parse(window.sessionStorage.getItem("peach.pkce")!).state,
+    );
+  });
+
+  it("logs out of the hosted domain back to the site root", () => {
+    const url = new URL(hostedLogoutUrl()!);
+
+    expect(url.origin + url.pathname).toBe(
+      "https://peach-test.auth.us-east-1.amazoncognito.com/logout",
+    );
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      client_id: "test-client",
+      logout_uri: `${window.location.origin}/`,
     });
   });
 

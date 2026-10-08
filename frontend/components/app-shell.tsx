@@ -8,7 +8,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { StatusIcon } from "@/components/status-icon";
 import { TaskDialogsProvider, useTaskDialogs } from "@/components/task-dialogs";
 import { itemStatuses } from "@/lib/api";
-import { signOut, useSession } from "@/lib/auth";
+import { hostedLogoutUrl, signOut, useSession } from "@/lib/auth";
 import { statusMeta } from "@/lib/item-status";
 import { useItems } from "@/lib/use-items";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,9 @@ function useLogOut() {
   const router = useRouter();
   return () => {
     signOut();
-    router.replace("/");
+    const logoutUrl = hostedLogoutUrl();
+    if (logoutUrl) window.location.assign(logoutUrl);
+    else router.replace("/");
   };
 }
 

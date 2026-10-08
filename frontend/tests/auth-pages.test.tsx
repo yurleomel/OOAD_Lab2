@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthGate } from "@/components/auth-gate";
+import { HostedLogin } from "@/components/hosted-login";
 import { SignInForm } from "@/components/sign-in-form";
 import { SignUpForm } from "@/components/sign-up-form";
 import { location, router } from "./navigation";
@@ -168,5 +169,23 @@ describe("SignUpForm", () => {
       Username: "alice@example.com",
       ConfirmationCode: "123456",
     });
+  });
+});
+
+describe("HostedLogin", () => {
+  it("sends the browser to the managed login page, PKCE state saved", async () => {
+    const assign = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({
+      ...window.location,
+      origin: "http://localhost:3000",
+      assign,
+    });
+    render(<HostedLogin />);
+
+    await waitFor(() => expect(assign).toHaveBeenCalledOnce());
+    const url = new URL(assign.mock.calls[0][0]);
+    expect(url.pathname).toBe("/oauth2/authorize");
+    expect(url.searchParams.has("identity_provider")).toBe(false);
+    expect(window.sessionStorage.getItem("peach.pkce")).not.toBeNull();
   });
 });

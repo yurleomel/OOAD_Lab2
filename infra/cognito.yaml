@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   Lanora sign-in: a Cognito user pool (email is the username), one public app
-  client for the browser, a hosted domain for the OAuth redirect, and Google as
-  an optional identity provider. Deployed by scripts/deploy-cognito.sh.
+  client for the browser, a managed login page on the pool's domain (email +
+  password and Google on one screen), and Google as an optional identity
+  provider. Deployed by scripts/deploy-cognito.sh.
 
 Parameters:
   ProjectName:
@@ -15,8 +16,13 @@ Parameters:
     Type: CommaDelimitedList
     Default: http://localhost:3000/auth/callback
     Description: >-
-      Where the hosted domain may send the browser back after Google. Local
+      Where the hosted domain may send the browser back after sign-in. Local
       Compose always; the deployed site once it exists.
+
+  LogoutUrls:
+    Type: CommaDelimitedList
+    Default: http://localhost:3000/
+    Description: Where the hosted domain may send the browser after sign-out.
 
   GoogleClientId:
     Type: String
@@ -36,6 +42,12 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub "${ProjectName}-users"
+      # Managed login (the v2 hosted page) needs Essentials; the first 10,000
+      # monthly active users are free.
+      UserPoolTier: ESSENTIALS
+      # Self sign-up stays on: anyone may create an account.
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
       UsernameAttributes: [email]
       UsernameConfiguration:
         CaseSensitive: false
@@ -103,6 +115,7 @@ Resources:
       AllowedOAuthFlows: [code]
       AllowedOAuthScopes: [openid, email, profile]
       CallbackURLs: !Ref CallbackUrls
+      LogoutURLs: !Ref LogoutUrls
       IdTokenValidity: 60
       AccessTokenValidity: 60
       RefreshTokenValidity: 30
@@ -117,6 +130,16 @@ Resources:
     Properties:
       UserPoolId: !Ref UserPool
       Domain: !Sub "${ProjectName}-${AWS::AccountId}"
+      ManagedLoginVersion: 2
+
+  # A version 2 domain shows no sign-in page until the client has a style;
+  # Cognito's default one is enough.
+  LoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientId: !Ref WebClient
+      UseCognitoProvidedValues: true
 
 Outputs:
   UserPoolId:

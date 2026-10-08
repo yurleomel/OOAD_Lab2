@@ -76,20 +76,23 @@ fi
 
 # --- redirect URLs ----------------------------------------------------------
 
-# Local Compose always; then whatever deployed addresses exist so far.
-CALLBACKS=("http://localhost:${FRONTEND_PORT:-3000}/auth/callback")
+# Local Compose always; then whatever deployed addresses exist so far. Each
+# site root gets a callback (sign-in) and a logout URL (sign-out).
+SITES=("http://localhost:${FRONTEND_PORT:-3000}")
 
 SITE_URL="$(aws cloudformation describe-stacks --stack-name "${FRONTEND_STACK_NAME}" \
   --query "Stacks[0].Outputs[?OutputKey=='SiteUrl'].OutputValue" \
   --output text 2>/dev/null || true)"
 if [[ -n "${SITE_URL}" && "${SITE_URL}" != "None" ]]; then
-  CALLBACKS+=("${SITE_URL%/}/auth/callback")
+  SITES+=("${SITE_URL%/}")
 fi
 if [[ -n "${DOMAIN_NAME:-}" ]]; then
-  CALLBACKS+=("https://${DOMAIN_NAME}/auth/callback")
+  SITES+=("https://${DOMAIN_NAME}")
 fi
-CALLBACK_LIST="$(printf '%s\n' "${CALLBACKS[@]}" | awk '!seen[$0]++' | paste -sd, -)"
+CALLBACK_LIST="$(printf '%s/auth/callback\n' "${SITES[@]}" | awk '!seen[$0]++' | paste -sd, -)"
+LOGOUT_LIST="$(printf '%s/\n' "${SITES[@]}" | awk '!seen[$0]++' | paste -sd, -)"
 log "OAuth redirects: ${CALLBACK_LIST}"
+log "Logout redirects: ${LOGOUT_LIST}"
 
 # --- deploy -----------------------------------------------------------------
 
@@ -102,6 +105,7 @@ trap 'rm -f "${PARAMS_FILE}"' EXIT
 
 PROJECT_NAME="${PROJECT_NAME}" \
 CALLBACK_LIST="${CALLBACK_LIST}" \
+LOGOUT_LIST="${LOGOUT_LIST}" \
 GOOGLE_ID="${GOOGLE_CLIENT_ID:-}" \
 GOOGLE_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
 python3 - "${PARAMS_FILE}" <<'PY'
@@ -110,6 +114,7 @@ import json, os, sys
 params = {
     "ProjectName": os.environ["PROJECT_NAME"],
     "CallbackUrls": os.environ["CALLBACK_LIST"],
+    "LogoutUrls": os.environ["LOGOUT_LIST"],
     "GoogleClientId": os.environ["GOOGLE_ID"],
     "GoogleClientSecret": os.environ["GOOGLE_SECRET"],
 }

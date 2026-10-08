@@ -2,8 +2,9 @@
  * Sign-in against the Cognito user pool, straight from the browser.
  *
  * Email + password use Cognito's public API (InitiateAuth, SignUp, ...), which
- * an app client without a secret may call directly. Google goes through the
- * pool's hosted domain with the OAuth code flow + PKCE. Tokens live in
+ * an app client without a secret may call directly. Google, and the managed
+ * login page that /login opens, go through the pool's hosted domain with the
+ * OAuth code flow + PKCE. Tokens live in
  * localStorage; the ID token is what the API accepts, and it is renewed from
  * the refresh token a minute before it expires.
  *
@@ -352,7 +353,7 @@ export function signOut() {
   writeTokens(null);
 }
 
-/* --- Google, through the hosted domain ----------------------------------- */
+/* --- The hosted domain: managed login and Google ------------------------- */
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -369,8 +370,12 @@ function redirectUri(): string {
   return `${window.location.origin}/auth/callback`;
 }
 
-/** The hosted-domain URL that starts Google sign-in; remembers the PKCE verifier. */
-export async function googleSignInUrl(): Promise<string> {
+/**
+ * The hosted-domain URL that starts a sign-in; remembers the PKCE verifier.
+ * With a provider it goes straight there; without one it opens the managed
+ * login page (email + password, or Continue with Google).
+ */
+export async function hostedSignInUrl(provider?: "Google"): Promise<string> {
   const verifier = randomString(48);
   const state = randomString(16);
   window.sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state }));
@@ -379,7 +384,7 @@ export async function googleSignInUrl(): Promise<string> {
     new TextEncoder().encode(verifier),
   );
   const params = new URLSearchParams({
-    identity_provider: "Google",
+    ...(provider ? { identity_provider: provider } : {}),
     response_type: "code",
     client_id: config.clientId,
     redirect_uri: redirectUri(),
@@ -391,11 +396,31 @@ export async function googleSignInUrl(): Promise<string> {
   return `https://${config.domain}/oauth2/authorize?${params}`;
 }
 
+export const googleSignInUrl = () => hostedSignInUrl("Google");
+
 export async function startGoogleSignIn(): Promise<void> {
   window.location.assign(await googleSignInUrl());
 }
 
-/** Finishes the redirect from Google: checks state, trades the code for tokens. */
+export async function startHostedSignIn(): Promise<void> {
+  window.location.assign(await hostedSignInUrl());
+}
+
+/**
+ * Where to send the browser on log out, or null to stay in the app. Cognito
+ * has no OIDC end-session endpoint; its /logout clears the hosted domain's own
+ * cookie, without which the next /login would sign the same user straight back in.
+ */
+export function hostedLogoutUrl(): string | null {
+  if (!authConfigured || !config.domain) return null;
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    logout_uri: `${window.location.origin}/`,
+  });
+  return `https://${config.domain}/logout?${params}`;
+}
+
+/** Finishes the redirect from the hosted domain: checks state, trades the code for tokens. */
 export async function completeGoogleSignIn(
   params: URLSearchParams,
 ): Promise<void> {
@@ -429,7 +454,7 @@ export async function completeGoogleSignIn(
   if (!response?.ok) {
     throw new AuthError(
       "TokenExchangeFailed",
-      "Google sign-in could not be completed. Try again.",
+      "Sign-in could not be completed. Try again.",
     );
   }
   const tokens = (await response.json()) as {

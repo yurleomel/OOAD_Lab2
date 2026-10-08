@@ -2,32 +2,31 @@
 
 import { LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { AuthCard } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
-import { completeGoogleSignIn } from "@/lib/auth";
+import { authConfigured, startHostedSignIn } from "@/lib/auth";
 
-/** Where the hosted domain sends the browser back after sign-in. */
-export function AuthCallback() {
-  const params = useSearchParams();
-  const router = useRouter();
+/** /login: hands the browser to Cognito's managed login page straight away.
+ *  The PKCE verifier and state are saved here first, so the callback accepts the code. */
+export function HostedLogin() {
   const [error, setError] = useState<string | null>(null);
-  // An authorization code works once; Strict Mode must not spend it twice.
+  // Strict Mode runs effects twice; one redirect is enough.
   const started = useRef(false);
 
   useEffect(() => {
-    if (started.current) return;
+    if (!authConfigured || started.current) return;
     started.current = true;
-    completeGoogleSignIn(new URLSearchParams(params.toString()))
-      .then(() => router.replace("/home"))
-      .catch((caught: Error) => setError(caught.message));
-  }, [params, router]);
+    startHostedSignIn().catch((caught: Error) => setError(caught.message));
+  }, []);
 
-  if (error) {
+  if (!authConfigured || error) {
     return (
-      <AuthCard title="Sign-in failed" subtitle={error}>
+      <AuthCard
+        title="Sign-in is unavailable"
+        subtitle={error ?? "This build has no Cognito user pool configured."}
+      >
         <Button
           asChild
           size="lg"
@@ -40,7 +39,7 @@ export function AuthCallback() {
   }
 
   return (
-    <AuthCard title="Signing you in" subtitle="Finishing sign-in...">
+    <AuthCard title="Signing you in" subtitle="Opening the sign-in page...">
       <LoaderCircle
         aria-label="Loading"
         className="mx-auto size-6 animate-spin text-muted-foreground"

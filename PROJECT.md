@@ -66,6 +66,7 @@ Peach/
 │   ├── backend.yaml              # Lambda + function URL + RDS PostgreSQL (db.t4g.micro)
 │   ├── api-edge.yaml             # ★ CloudFront in front of the function URL, for api.<domain>
 │   ├── frontend.yaml             # private S3 bucket + CloudFront (+ app.<domain>)
+│   ├── reports.yaml              # ★ weekly report: schedule, SQS + DLQ, builder, mailer, bucket, SES
 │   └── github-oidc.yaml          # the role GitHub Actions assumes (extended: S3 + CloudFront)
 │
 ├── scripts/                      # what the Makefile runs; CI runs the same scripts
@@ -77,6 +78,9 @@ Peach/
 │   ├── deploy-frontend.sh        # static export -> S3 -> CloudFront invalidation
 │   ├── domain-frontend.sh        # ACM cert + app.<domain> on the frontend distribution
 │   ├── destroy-frontend.sh
+│   ├── deploy-reports.sh         # ★ reports.yaml, wired to the backend stack; prints SES DKIM records
+│   ├── destroy-reports.sh        # ★ empty the reports bucket, delete the stack
+│   ├── report.sh                 # ★ now [WEEK] / ls / logs / status for the deployed report
 │   └── github-role.sh            # create the OIDC role, set repository variables
 │
 ├── backend/
@@ -85,7 +89,7 @@ Peach/
 │   ├── alembic.ini
 │   ├── app/
 │   │   ├── main.py               # app factory: CORS, /health, /api/v1 router
-│   │   ├── config.py             # Settings from the environment; nothing else reads os.environ
+│   │   ├── config.py             # Settings from the environment; nothing else reads os.environ (but reports/mailer.py, §12)
 │   │   ├── db.py                 # async engine, session dependency
 │   │   ├── auth.py               # ★ Cognito ID-token verification, current_user, CurrentUser
 │   │   ├── dev_auth.py           # ★ local sign-in for docker compose up without AWS (§9)
@@ -93,10 +97,11 @@ Peach/
 │   │   ├── models/               # ORM: item.py, user.py ★
 │   │   ├── schemas/              # request/response models: item.py, user.py ★
 │   │   ├── services/             # business logic: items.py, users.py ★
+│   │   ├── reports/              # ★ weekly.py (the CSV, no AWS), lambda_handler.py (builder), mailer.py
 │   │   └── api/
 │   │       ├── router.py         # /api/v1, every route behind current_user
 │   │       └── routes/           # HTTP layer only: health.py, items.py, me.py ★
-│   ├── migrations/versions/      # 0001, 0002, 0003_users ★
+│   ├── migrations/versions/      # 0001, 0002, 0003_users ★, 0004_item_completed_at ★
 │   ├── scripts/entrypoint.sh     # migrate, then uvicorn (runtime image)
 │   └── tests/                    # pytest against real Postgres; tokens.py ★, test_auth.py ★, test_me.py ★, test_local_sign_in.py ★
 │
@@ -257,6 +262,7 @@ already holds rows; `create_all` is none of those.
 | `description` | `text` | nullable, ≤ 2000 chars (enforced by the API) |
 | `status` | `varchar(20)` | not null, default `todo`, check `in ('todo','in_progress','done')` |
 | `created_at`, `updated_at` | `timestamptz` | not null, `now()`; `updated_at` bumped on every update |
+| `completed_at` ★ | `timestamptz` | nullable, indexed; set when `status` becomes `done`, cleared when it leaves `done`, untouched by other edits. Not in the API; the weekly report counts completions by it |
 
 **Migrations**
 
@@ -265,6 +271,7 @@ already holds rows; `create_all` is none of those.
 | `0001` | create `items` (with `is_done`) |
 | `0002` | replace `is_done` with three-state `status` |
 | `0003` ★ | create `users`; add `items.owner_id` — rows without an owner are deleted (no deployed database holds data yet), then the column becomes not null with its foreign key and index. Downgrade drops both. |
+| `0004` ★ | add `items.completed_at` and its index; items already `done` get their `updated_at` (exact unless edited after completion) |
 
 ---
 
@@ -454,6 +461,7 @@ browser ─► Cognito (sign-in, token refresh)
 | `peach-backend` | `backend.yaml` | Lambda + function URL, RDS PostgreSQL `db.t4g.micro` (20 GiB), security groups, DB secret, logs | `make deploy-backend` |
 | `peach-api-edge` ★ | `api-edge.yaml` | CloudFront distribution in front of the function URL, `api.<domain>` alias | `make domain-backend` |
 | `peach-frontend` | `frontend.yaml` | private bucket, origin access control, clean-URL rewrite function, distribution, `app.<domain>` alias | `make deploy-frontend`, `make domain` |
+| `peach-reports` ★ | `reports.yaml` | weekly report: schedule, SQS queue + DLQ, builder and mailer functions, reports bucket, S3 gateway endpoint, SES domain identity | `make deploy-reports` |
 | `peach-github-oidc` | `github-oidc.yaml` | OIDC provider, deploy role | `make github-role` |
 | ECR repository | — | backend images, last 3 kept | `deploy-backend.sh` |
 
@@ -490,7 +498,57 @@ This deployment: **`https://app.mylanora.world`** (site) and **`https://api.myla
 `BACKEND_URL` - in `.env` and the repository variable - at the API's domain, and
 `deploy-backend` keeps it there.
 
-**Teardown**, in this order: `make destroy-frontend`, `make destroy-backend-domain` ★,
+**Weekly report** ★ (Lab 5) — work that must not happen inside a request: every Monday at 07:00
+Kyiv time the system builds last week's report, saves it to S3 and emails it. Nobody clicks
+anything.
+
+```
+EventBridge Scheduler ─┐ command {"week": null, "source": "schedule"}
+make report-now ───────┴─► SQS report-requests ──(3 failures)──► report-requests-dlq
+                                 │ batch of 1
+                                 ▼
+          Lambda report-builder (API image, in the VPC) ─► RDS PostgreSQL
+                                 │ PutObject via the S3 gateway endpoint (free)
+                                 ▼
+          S3 <project>-reports-<account>/reports/2026-W40.csv
+                                 │ event: ObjectCreated (prefix reports/, suffix .csv)
+                                 ▼
+          Lambda report-mailer (API image, outside the VPC) ─► SES ─► inbox
+```
+
+- **Why two functions.** The builder must be in the VPC to reach the database, and the VPC has no
+  NAT, so it cannot reach SES. The mailer runs outside the VPC and never touches the database.
+  They are joined by an event - a file appearing in S3 - and neither calls the other: a second
+  listener (Slack) would be one more bucket notification and no change to the builder.
+- **The report** (`app/reports/weekly.py`, no AWS in it): `build_weekly_report(week)` for an ISO
+  week, Monday 00:00 to Monday 00:00 Europe/Kyiv. Tasks created, tasks completed (by
+  `completed_at`) and the hours from creation to completion, each against the week before; the
+  five longest tasks completed that week; the same three figures per person. CSV in UTF-8 with a
+  byte-order mark. The week is always a parameter, and one week is always one key,
+  `reports/<week>.csv`: a message delivered twice overwrites one file. `make report-local` prints
+  it from the Compose database.
+- **Builder** (`app.reports.lambda_handler.handler`, the API image with another `Command`): a
+  direct invocation and an SQS record carry the same payload; no week means the last complete
+  one. It logs `report-builder triggered: trigger=<schedule|sqs|direct> via=… week=…` first.
+  Timeout 60 s; the queue's visibility timeout is 360 s (six times that), `maxReceiveCount` 3.
+  `REPORTS_FAIL_WEEK` (stack parameter `FailWeek`) makes one week fail, for the dead-letter
+  exercise.
+- **Mailer** (`app.reports.mailer.handler`, same image, no VPC): standard library and boto3 only,
+  reading its two variables itself - importing the database code outside the VPC would be
+  pointless. It only reads `reports/` (`s3:GetObject`); a function triggered by a prefix that
+  wrote to it would invoke itself forever. Sender `<SenderName> <reports@<MailDomain>>`,
+  recipients from `REPORT_RECIPIENTS`; with either empty it logs and sends nothing.
+- **The bucket** is named, not generated (`<project>-reports-<account>`), so the invoke
+  permission's `SourceArn` can be built without `!GetAtt` and the bucket can `DependsOn` it -
+  otherwise CloudFormation reports a circular dependency. Private, reports expire after 90 days.
+- **SES.** `AWS::SES::EmailIdentity` for `mylanora.world` prints three DKIM CNAMEs, added at
+  Namecheap by hand like the certificate records. While the account is in the SES sandbox it
+  delivers only to verified addresses; `deploy-reports.sh` asks SES to verify each recipient.
+- **Image.** Both functions run whatever image the API runs: `deploy-reports.sh` reads it from the
+  backend function, and `deploy-backend.sh` (CI included) moves both functions to each new image,
+  so the builder never queries a schema it predates.
+
+**Teardown**, in this order: `make destroy-reports` ★, `make destroy-frontend`, `make destroy-backend-domain` ★,
 `make destroy-backend`, `make destroy-cognito`, then delete the certificates and the
 `peach-github-oidc` stack. On the AWS Free plan all of it is covered; on a paid plan after the
 free allowance, the micro database is the one thing billing by the hour (~$12/month), plus one
@@ -517,6 +575,9 @@ CI has no recipe of its own: it runs these targets, so a failed deploy is debugg
 | `deploy-frontend`, `destroy-frontend` | the site |
 | `cert DOMAIN=…`, `domain DOMAIN=app.<domain>` | the site's certificate and custom domain |
 | `github-role` | the OIDC role and repository variables |
+| `deploy-reports` ★, `destroy-reports` ★ | the weekly report stack (`REPORTS_MAIL_DOMAIN`, `REPORT_RECIPIENTS`, `REPORTS_SCHEDULE`, `REPORTS_FAIL_WEEK` from `.env` or the command line) |
+| `report-now WEEK=2026-W41` ★, `report-ls` ★, `report-logs` ★, `report-status` ★ | queue a report on demand (no `WEEK`: last week), list the bucket, the trigger log lines, queue and DLQ depth |
+| `report-local WEEK=…` ★ | print a report built from the Compose database |
 
 ---
 
@@ -583,6 +644,9 @@ Covered, because they break silently:
 | user provisioning ★ | first request creates the row, later ones reuse it, email/name refresh |
 | items | create, validate, update partially, delete, paginate |
 | lambda handler | a function URL event reaches the app; repeated calls survive |
+| weekly report ★ | ISO weeks in Kyiv time (DST, week 53, year boundary), one key per week; totals against the week before, the five longest, per person, an empty week, Cyrillic; same data, same bytes |
+| report handlers ★ | builder: direct call, SQS from `make`, SQS from the schedule (no week → last week), the same week twice → one key, a bad week and `REPORTS_FAIL_WEEK` raise; mailer: CSV attached intact, never writes back, keys decoded, non-reports and no recipients send nothing |
+| `completed_at` ★ | set on becoming done (and when created done), kept by later edits, cleared on reopening |
 | frontend | `api.ts` attaches the token, parses, raises `ApiError`, signs out on `401`; board drag/edit/rollback; list grouping, edit, add-in-group, collapse ★; `auth.ts` password flow, error mapping, refresh (shared, kept on network failure, sign-out on refusal), Google PKCE ★; gate redirect, sign-in/up forms ★; dashboard figures from a known list, paging past 100 ★ |
 
 ---
@@ -590,8 +654,10 @@ Covered, because they break silently:
 ## 16. Out of scope
 
 Not built, and not to be added without changing this file first: teams or sharing, roles,
-background workers, queues, caches, a reverse proxy, a second database, WebSockets, file uploads,
-email beyond Cognito's own, Kubernetes, multiple environments (staging), ECS/ALB.
+background workers and queues beyond the weekly report (§12), caches, a reverse proxy, a second
+database, WebSockets, file uploads, email beyond Cognito's own and the weekly report, Kubernetes,
+multiple environments (staging), ECS/ALB. Celery, RQ, Redis and RabbitMQ are the self-hosted
+equivalents of the report's pieces; they are compared in the course, not deployed.
 
 ---
 

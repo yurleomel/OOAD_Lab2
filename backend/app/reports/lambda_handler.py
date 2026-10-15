@@ -19,10 +19,10 @@ queue instead of disappearing.
 
 import json
 import logging
-import os
 from functools import cache
 from typing import Any
 
+from app.config import get_settings
 from app.reports.weekly import build_weekly_report, previous_week, report_key
 
 logger = logging.getLogger("report-builder")
@@ -60,7 +60,8 @@ def detect_trigger(transport: str, payload: dict[str, Any]) -> str:
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    bucket = os.environ["REPORTS_BUCKET"]
+    settings = get_settings()
+    bucket = settings.reports_bucket
     built = []
     for transport, payload in requests_in(event):
         week = payload.get("week") or previous_week()
@@ -75,7 +76,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
         key = report_key(week)
         # For the dead-letter exercise (PROJECT.md section 12): one chosen week fails.
-        if week == os.environ.get("REPORTS_FAIL_WEEK"):
+        if week == settings.reports_fail_week:
             raise RuntimeError(f"REPORTS_FAIL_WEEK is {week}: failing this report on purpose")
 
         body = build_weekly_report(week)

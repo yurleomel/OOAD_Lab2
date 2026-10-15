@@ -3,10 +3,12 @@ import email.policy
 import io
 import json
 import logging
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
+from app.config import get_settings
 from app.reports import lambda_handler as builder
 from app.reports import mailer
 
@@ -44,7 +46,7 @@ def s3(monkeypatch: pytest.MonkeyPatch) -> FakeS3:
 
 
 @pytest.fixture
-def built(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> list[str]:
+def built(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> Iterator[list[str]]:
     """The weeks the builder was asked for; the report itself is tested elsewhere."""
     weeks: list[str] = []
 
@@ -56,7 +58,9 @@ def built(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> 
     monkeypatch.setenv("REPORTS_BUCKET", BUCKET)
     monkeypatch.delenv("REPORTS_FAIL_WEEK", raising=False)
     caplog.set_level(logging.INFO)
-    return weeks
+    get_settings.cache_clear()
+    yield weeks
+    get_settings.cache_clear()
 
 
 @pytest.fixture
@@ -150,6 +154,7 @@ def test_the_chosen_week_fails_on_purpose(
     s3: FakeS3, built: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("REPORTS_FAIL_WEEK", "2026-W30")
+    get_settings.cache_clear()
     with pytest.raises(RuntimeError):
         builder.handler(sqs_event({"week": "2026-W30", "source": "make"}), None)
 

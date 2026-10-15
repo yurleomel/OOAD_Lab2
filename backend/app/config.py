@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # them; left empty elsewhere, and they are downloaded from the issuer.
     cognito_jwks: str = ""
 
+    # The weekly report's builder (app/reports/lambda_handler.py). The bucket it
+    # writes to, and one ISO week it fails on purpose for the dead-letter exercise.
+    reports_bucket: str = ""
+    reports_fail_week: str = ""
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

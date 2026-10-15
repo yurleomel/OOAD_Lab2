@@ -1,7 +1,10 @@
 import uuid
+from datetime import UTC, datetime
 
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import Item
 from tests.tokens import make_token
 
 
@@ -99,3 +102,55 @@ async def test_items_are_private_to_their_owner(client: AsyncClient) -> None:
 
     # Untouched for its owner.
     assert (await client.get(url)).json()["name"] == "Alice's"
+
+
+# --- completed_at, which the weekly report counts by --------------------------
+
+
+async def _completed_at(session: AsyncSession, item_id: str) -> datetime | None:
+    item = await session.get(Item, uuid.UUID(item_id))
+    assert item is not None
+    await session.refresh(item)
+    return item.completed_at
+
+
+async def test_completed_at_is_set_when_an_item_is_done(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    created = (await client.post("/api/v1/items", json={"name": "Ship it"})).json()
+    assert await _completed_at(session, created["id"]) is None
+
+    await client.patch(f"/api/v1/items/{created['id']}", json={"status": "done"})
+    assert await _completed_at(session, created["id"]) is not None
+
+
+async def test_an_item_created_done_is_completed(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    created = (
+        await client.post("/api/v1/items", json={"name": "Already", "status": "done"})
+    ).json()
+    assert await _completed_at(session, created["id"]) is not None
+
+
+async def test_editing_a_done_item_keeps_its_completion_time(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    created = (await client.post("/api/v1/items", json={"name": "Old", "status": "done"})).json()
+    item = await session.get(Item, uuid.UUID(created["id"]))
+    assert item is not None
+    finished = datetime(2026, 9, 1, tzinfo=UTC)
+    item.completed_at = finished
+    await session.flush()
+
+    await client.patch(f"/api/v1/items/{created['id']}", json={"name": "Renamed"})
+    await client.patch(f"/api/v1/items/{created['id']}", json={"status": "done"})
+    assert await _completed_at(session, created["id"]) == finished
+
+
+async def test_reopening_an_item_clears_its_completion(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    created = (await client.post("/api/v1/items", json={"name": "Again", "status": "done"})).json()
+    await client.patch(f"/api/v1/items/{created['id']}", json={"status": "in_progress"})
+    assert await _completed_at(session, created["id"]) is None

@@ -322,6 +322,18 @@ if [[ -n "${FUNCTION_ERROR}" && "${FUNCTION_ERROR}" != "None" ]]; then
   die "migrations failed - see: make logs-backend"
 fi
 
+# --- weekly report ----------------------------------------------------------
+
+# The report functions (infra/reports.yaml) run this same image. Move them
+# with the API, so the builder never queries a schema it predates. The deploy
+# role may update any of this project's functions, so CI does this too.
+for fn in "${PROJECT_NAME}-report-builder" "${PROJECT_NAME}-report-mailer"; do
+  if aws lambda get-function --function-name "${fn}" >/dev/null 2>&1; then
+    log "rolling ${fn} onto ${IMAGE_TAG}"
+    aws lambda update-function-code --function-name "${fn}" --image-uri "${IMAGE_URI}" >/dev/null
+  fi
+done
+
 # --- report -----------------------------------------------------------------
 
 API_URL="$(outputs ApiUrl)"

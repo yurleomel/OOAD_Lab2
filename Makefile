@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role
+.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role deploy-reports destroy-reports report-now report-ls report-logs report-status report-local
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -90,3 +90,24 @@ destroy-frontend: ## Delete the frontend stack (bucket + distribution)
 
 github-role: ## Create the IAM role GitHub Actions assumes to deploy (OIDC, no keys)
 	./scripts/github-role.sh
+
+deploy-reports: ## Weekly report: builder, mailer, bucket, queue + DLQ, Monday schedule, SES (after deploy-backend)
+	./scripts/deploy-reports.sh
+
+destroy-reports: ## Delete the weekly report stack, every report in the bucket included
+	./scripts/destroy-reports.sh
+
+report-now: ## Queue a report on demand: make report-now WEEK=2026-W41 (no WEEK = last week)
+	./scripts/report.sh now $(WEEK)
+
+report-ls: ## List the reports in the bucket
+	./scripts/report.sh ls
+
+report-logs: ## The trigger lines of both report functions, last 24 h (SINCE_HOURS=…)
+	./scripts/report.sh logs
+
+report-status: ## Messages waiting in the report queue and its dead-letter queue
+	./scripts/report.sh status
+
+report-local: ## Print a report built from the Compose database: make report-local WEEK=2026-W40
+	$(COMPOSE) exec backend python -m app.reports.weekly $(WEEK)

@@ -17,6 +17,7 @@ upstream repository and are being written here.
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
 | CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | done - every push to `main` checks, then ships the backend (image tagged with the SHA) and the site |
+| Lab 5 weekly report: `app/reports/` (report, builder, mailer), `items.completed_at` (0004), `infra/reports.yaml`, `deploy-reports.sh`, `report.sh`, `make report-*`; submission notes and answers in `docs/lab5.md` | code + tests done (`pytest` 82 passed), template passes cfn-lint; not deployed yet |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
 
 ## Running
@@ -63,5 +64,14 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
   pointed past it with `--host-resolver-rules`.
 - `.env` now carries the pool ids, so a rebuilt local stack signs in through Cognito; blank the
   `COGNITO_*` lines to get local sign-in back.
+- The report functions run the **API's image** with another handler. `deploy-reports.sh` reads it
+  (and the VPC, security group, database URL) from the backend stack, so `make deploy-backend`
+  comes first; `deploy-backend.sh` then moves both report functions to every new image itself.
+- `app/reports/mailer.py` reads `os.environ` directly and imports nothing from `app` on purpose:
+  it runs outside the VPC, where the database code is useless. Everything else goes through
+  `Settings`.
+- SES starts in the **sandbox**: mail reaches verified addresses only. `deploy-reports.sh` asks SES
+  to verify each `REPORT_RECIPIENTS` address (a link arrives by email); the `mylanora.world`
+  identity needs its three DKIM CNAMEs at Namecheap.
 - Remotes: `origin` is the student repository, `upstream` is the course repository. Never push to
   `upstream`.

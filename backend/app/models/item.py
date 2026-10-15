@@ -39,3 +39,8 @@ class Item(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    # Set when the status becomes done, cleared when it leaves done. The weekly
+    # report counts completions by it: updated_at moves on every later edit.
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )

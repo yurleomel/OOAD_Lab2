@@ -17,7 +17,7 @@ upstream repository and are being written here.
 | API domain: `api-edge.yaml`, `domain-backend.sh` | not started |
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
 | CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | done - every push to `main` checks, then ships the backend (image tagged with the SHA) and the site |
-| Lab 5 weekly report: `app/reports/` (report, builder, mailer), `items.completed_at` (0004), `infra/reports.yaml`, `deploy-reports.sh`, `report.sh`, `make report-*` | code + tests done (`pytest` 82 passed), template passes cfn-lint; not deployed yet |
+| Lab 5 weekly report: `app/reports/` (report, builder, mailer), `items.completed_at` (0004), `infra/reports.yaml`, `deploy-reports.sh`, `report.sh`, `make report-*`; submission notes and answers in `docs/lab5.md` | code + tests done (`pytest` 82 passed), template passes cfn-lint; not deployed yet |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
 
 ## Running

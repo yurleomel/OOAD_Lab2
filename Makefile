@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role deploy-reports destroy-reports report-now report-ls report-logs report-status report-local
+.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role deploy-reports destroy-reports report-now report-ls report-logs report-status report-local llm-hello parse deploy-ai destroy-ai parse-logs
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -111,3 +111,20 @@ report-status: ## Messages waiting in the report queue and its dead-letter queue
 
 report-local: ## Print a report built from the Compose database: make report-local WEEK=2026-W40
 	$(COMPOSE) exec backend python -m app.reports.weekly $(WEEK)
+
+llm-hello: ## The first Bedrock call from the laptop: answer, stop_reason, usage
+	./scripts/llm.sh hello
+
+parse: ## Run the agenda parser from the laptop: make parse TEXT="Пн 10:00, синк ..."
+	./scripts/llm.sh parse
+
+deploy-ai: ## Agenda parser: function + URL, Bedrock role, $$5 budget alarm (after deploy-backend); writes PARSER_URL
+	./scripts/deploy-ai.sh
+
+destroy-ai: ## Delete the agenda parser stack and the budget
+	./scripts/destroy-ai.sh
+
+parse-logs: ## The parser's JSON log lines, last 24 h (SINCE_HOURS=…)
+	aws logs filter-log-events --log-group-name /aws/lambda/$${PROJECT_NAME:-peach}-agenda-parser \
+		--start-time $$(( ($$(date +%s) - $${SINCE_HOURS:-24} * 3600) * 1000 )) \
+		--filter-pattern '"agenda_parse"' --query 'events[].message' --output text | tr '\t' '\n'

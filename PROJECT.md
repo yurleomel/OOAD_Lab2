@@ -22,6 +22,11 @@ A personal task board. A person signs in, keeps tasks in three columns (To do, I
 and sees their progress on a dashboard. Every task belongs to exactly one person; nobody sees
 anyone else's tasks.
 
+A task can carry an **agenda** ★ (Lab 6): when the task is a meeting, its topics with owners and
+minutes, its start and length, and its action items. The agenda can be typed, or pasted as free
+text - an email, a chat message - which an LLM turns into a pre-filled form that the person checks
+and saves (§12, "Agenda parser").
+
 That is the whole product for this iteration. Section 16 lists what is deliberately left out.
 
 ---
@@ -67,6 +72,7 @@ Peach/
 │   ├── api-edge.yaml             # ★ CloudFront in front of the function URL, for api.<domain>
 │   ├── frontend.yaml             # private S3 bucket + CloudFront (+ app.<domain>)
 │   ├── reports.yaml              # ★ weekly report: schedule, SQS + DLQ, builder, mailer, bucket, SES
+│   ├── ai.yml                    # ★ agenda parser: function + URL outside the VPC, Bedrock role, $5 budget
 │   └── github-oidc.yaml          # the role GitHub Actions assumes (extended: S3 + CloudFront)
 │
 ├── scripts/                      # what the Makefile runs; CI runs the same scripts
@@ -81,6 +87,9 @@ Peach/
 │   ├── deploy-reports.sh         # ★ reports.yaml, wired to the backend stack; prints SES DKIM records
 │   ├── destroy-reports.sh        # ★ empty the reports bucket, delete the stack
 │   ├── report.sh                 # ★ now [WEEK] / ls / logs / status for the deployed report
+│   ├── deploy-ai.sh              # ★ ai.yml, wired to the backend; writes PARSER_URL
+│   ├── destroy-ai.sh             # ★ delete the parser stack and the budget
+│   ├── llm.sh                    # ★ make llm-hello / make parse: Bedrock from the laptop
 │   └── github-role.sh            # create the OIDC role, set repository variables
 │
 ├── backend/
@@ -91,17 +100,19 @@ Peach/
 │   │   ├── main.py               # app factory: CORS, /health, /api/v1 router
 │   │   ├── config.py             # Settings from the environment; nothing else reads os.environ (but reports/mailer.py, §12)
 │   │   ├── db.py                 # async engine, session dependency
-│   │   ├── auth.py               # ★ Cognito ID-token verification, current_user, CurrentUser
+│   │   ├── auth.py               # ★ current_user, CurrentUser: a checked ID token -> a users row
+│   │   ├── id_tokens.py          # ★ the ID-token checks alone, no database (shared with the parser)
 │   │   ├── dev_auth.py           # ★ local sign-in for docker compose up without AWS (§9)
 │   │   ├── lambda_handler.py     # Lambda entry: HTTP via Mangum, {"action":"migrate"} -> alembic
 │   │   ├── models/               # ORM: item.py, user.py ★
-│   │   ├── schemas/              # request/response models: item.py, user.py ★
+│   │   ├── schemas/              # request/response models: item.py, user.py ★, agenda.py ★
 │   │   ├── services/             # business logic: items.py, users.py ★
 │   │   ├── reports/              # ★ weekly.py (the CSV, no AWS), lambda_handler.py (builder), mailer.py
+│   │   ├── ai/                   # ★ agenda.py (the parser, no Lambda), agenda_lambda.py, pricing.py, hello.py
 │   │   └── api/
 │   │       ├── router.py         # /api/v1, every route behind current_user
 │   │       └── routes/           # HTTP layer only: health.py, items.py, me.py ★
-│   ├── migrations/versions/      # 0001, 0002, 0003_users ★, 0004_item_completed_at ★
+│   ├── migrations/versions/      # 0001, 0002, 0003_users ★, 0004_item_completed_at ★, 0005_item_agenda ★
 │   ├── scripts/entrypoint.sh     # migrate, then uvicorn (runtime image)
 │   └── tests/                    # pytest against real Postgres; tokens.py ★, test_auth.py ★, test_me.py ★, test_local_sign_in.py ★
 │
@@ -125,6 +136,7 @@ Peach/
     │   ├── ui/                   # shadcn-generated; never hand-edited
     │   ├── app-shell.tsx         # ★ top bar, icon rail, sidebar with status counts
     │   ├── task-dialogs.tsx      # ★ one create/edit dialog + delete confirmation for every page
+    │   ├── agenda-editor.tsx     # ★ the agenda fields, the paste box, "suggested" marks
     │   ├── auth-gate.tsx         # ★ redirects signed-out visitors to /
     │   ├── auth-layout.tsx       # ★ backdrop + card shared by the signed-out pages
     │   ├── sign-in-form.tsx, sign-up-form.tsx, auth-callback.tsx, google-button.tsx  # ★
@@ -135,6 +147,7 @@ Peach/
     ├── lib/
     │   ├── api.ts                # the only place that calls fetch; zod schemas mirroring §8
     │   ├── auth.ts               # ★ Cognito sign-in/up, token storage and refresh, useSession
+    │   ├── parser.ts             # ★ the one call to the agenda parser, its error kinds
     │   ├── use-items.ts          # ★ every task, paged through; the one ["items"] cache entry
     │   ├── item-status.ts        # status labels, icons and colours
     │   └── utils.ts
@@ -186,6 +199,10 @@ commit meant to be amended.
 | `API_CORS_ORIGINS` | deploy-backend | `https://app.<domain>` | `.env`, by hand |
 | `DOMAIN_NAME` | domain-frontend | `app.<domain>` | `make domain` |
 | `API_DOMAIN_NAME` | ★ domain-backend, deploy-backend | `api.<domain>` | `make domain-backend` |
+| `PARSER_API`, `PARSER_MODEL` ★ | parser, deploy-ai, llm.sh | `converse`, `us.anthropic.claude-haiku-4-5-20251001-v1:0` | `.env` or the command line; a plain `make deploy-ai` resets them |
+| `BEDROCK_REGION` ★ | parser | `us-east-1` | the stack |
+| `BUDGET_EMAIL` ★ | deploy-ai | blank = the first `REPORT_RECIPIENTS` | `.env`, by hand |
+| `PARSER_URL` ★ | deploy-frontend (`NEXT_PUBLIC_PARSER_URL`) | blank = no paste box | `make deploy-ai` (and the repository variable) |
 
 The browser and the frontend server use different API URLs on purpose: the browser resolves
 `localhost`, a server component inside the Compose network resolves the `backend` service name.
@@ -263,6 +280,8 @@ already holds rows; `create_all` is none of those.
 | `status` | `varchar(20)` | not null, default `todo`, check `in ('todo','in_progress','done')` |
 | `created_at`, `updated_at` | `timestamptz` | not null, `now()`; `updated_at` bumped on every update |
 | `completed_at` ★ | `timestamptz` | nullable, indexed; set when `status` becomes `done`, cleared when it leaves `done`, untouched by other edits. Not in the API; the weekly report counts completions by it |
+| `agenda` ★ | `jsonb` | nullable; an `Agenda` (§8), validated by the API on the way in |
+| `ai_suggestion` ★ | `jsonb` | nullable; what the parser suggested (`AiSuggestion`, §8), written with the agenda when it started as pasted text. Write-only through the API: it is there to compare with `agenda` offline |
 
 **Migrations**
 
@@ -272,6 +291,7 @@ already holds rows; `create_all` is none of those.
 | `0002` | replace `is_done` with three-state `status` |
 | `0003` ★ | create `users`; add `items.owner_id` — rows without an owner are deleted (no deployed database holds data yet), then the column becomes not null with its foreign key and index. Downgrade drops both. |
 | `0004` ★ | add `items.completed_at` and its index; items already `done` get their `updated_at` (exact unless edited after completion) |
+| `0005` ★ | add `items.agenda` and `items.ai_suggestion` (`jsonb`, nullable) |
 
 ---
 
@@ -315,11 +335,28 @@ is public.
 | `ItemCreate` | `name` | string | 1–120 chars, required |
 | | `description` | string \| null | ≤ 2000 chars, default null |
 | | `status` | `"todo"` \| `"in_progress"` \| `"done"` | default `"todo"` |
-| `ItemUpdate` | same three fields | | all optional; only fields sent are changed |
-| `ItemRead` | `ItemCreate` fields + `id`, `created_at`, `updated_at` | | `owner_id` is never exposed |
+| | `agenda` ★ | `Agenda` \| null | default null |
+| | `ai_suggestion` ★ | `AiSuggestion` \| null | default null; stored, never returned |
+| `ItemUpdate` | same five fields | | all optional; only fields sent are changed; `"agenda": null` removes the agenda |
+| `ItemRead` | `name`, `description`, `status`, `agenda` + `id`, `created_at`, `updated_at` | | `owner_id` and `ai_suggestion` are never exposed |
+| `Agenda` ★ | `starts_at` | ISO 8601 with offset \| null | |
+| | `duration_minutes` | int \| null | 1–600 |
+| | `items` | `{topic, owner, minutes}[]` | ≤ 50; topic 1–300 chars, owner ≤ 120 \| null, minutes 1–480 \| null |
+| | `action_items` | `{task, owner, due}[]` | ≤ 50; task 1–300 chars, owner ≤ 120 \| null, due `YYYY-MM-DD` \| null |
+| `ParsedAgenda` ★ | `Agenda` fields + `title` (≤ 120 \| null), `language`; `starts_at` a string | | the parser's tool schema |
+| `AiSuggestion` ★ | `agenda` (`ParsedAgenda`), `model`, `prompt_version` | | |
 | `UserRead` ★ | `id`, `email`, `name`, `created_at` | | |
 
 Swagger at `/docs`, ReDoc at `/redoc`, the schema at `/openapi.json`.
+
+**The agenda parser** ★ is not part of this API: its own function URL (§12), one route.
+
+| Method | Body | Success | Errors |
+|---|---|---|---|
+| `POST /` | `{"text", "today": "YYYY-MM-DD", "tz": "Europe/Kyiv"}` + ID token | `200 {"agenda": ParsedAgenda, "model", "prompt_version"}` | `401` no/bad token, `400` bad body, `413` text > 10,000 chars (before the model), `422 {"error": "no_agenda" \| "invalid_output"}`, `429 busy` (throttled), `503` Bedrock or the pool's keys unavailable |
+
+Errors are `{"error": <code>, "message": <text>}`. It writes nothing: the agenda is saved through
+`POST`/`PATCH /api/v1/items`.
 
 ---
 
@@ -548,7 +585,49 @@ make report-now ───────┴─► SQS report-requests ──(3 fail
   backend function, and `deploy-backend.sh` (CI included) moves both functions to each new image,
   so the builder never queries a schema it predates.
 
-**Teardown**, in this order: `make destroy-reports` ★, `make destroy-frontend`, `make destroy-backend-domain` ★,
+**Agenda parser** ★ (Lab 6) — pasted text in, a suggested agenda out.
+
+```
+browser ─(1 parse: text, today, tz, ID token)─► Lambda agenda-parser (API image, no VPC) ─► Bedrock (Claude)
+   │                                                       └─► one JSON log line: model, prompt version, tokens, latency, cost
+   └──(2 save: agenda + ai_suggestion)──────────► API (in the VPC) ─► RDS PostgreSQL
+```
+
+- **Why outside the VPC.** It needs Bedrock and the pool's JWKS, both on the internet, and never
+  the database. In the VPC it would need a NAT gateway or a Bedrock interface endpoint ($7.30 a
+  month each, per AZ) to do the same; outside, it costs nothing while nobody parses.
+- **It only suggests.** Saving goes through the items endpoints with their validation. The site
+  sends the parser's answer along (`ai_suggestion`); the difference between it and the saved
+  agenda is the quality signal (ADR `docs/adr/0006-llm-agenda-parsing.md`).
+- **The parser** (`app/ai/agenda.py`, no Lambda): one tool, `record_agenda`, whose input schema
+  is `ParsedAgenda`; today's date and a calendar of the next fourteen days (weekday + date, starting
+  today) in the prompt, so weekdays are looked up rather than counted; the pasted text inside
+  `<pasted_text>` and declared data in the system prompt; validation with one retry that shows the
+  model its error; no topics = `no_agenda`. `starts_at` is a wall-clock time (any offset the model
+  writes is stripped, the browser adds the offset of that day), and it is dropped when the text
+  holds no clock time. Prompt version `agenda-v2` (v1's mistakes and the fixes: `docs/lab6.md`).
+- **Two APIs behind it** (`PARSER_API`): `converse` (bedrock-runtime, provider-neutral, the tool
+  can be forced) and `messages` (the Anthropic Messages API on bedrock-mantle, the only way to
+  Claude 5.x, no forced tool). **This account** answers "not available for this account" for every
+  Claude 5.x model on both APIs, Marketplace agreements accepted; Claude 4.x works once the
+  Anthropic use-case form is on file. So it runs `converse` + Claude Haiku 4.5. The lab's Opus 5.5 is
+  `PARSER_API=messages PARSER_MODEL=anthropic.claude-opus-5-5 make deploy-ai`, no code change.
+- **The handler** (`app.ai.agenda_lambda.handler`, the API image with another `Command`): Cognito
+  ID token checked against the pool's JWKS (`app/id_tokens.py`), `413` before the model,
+  throttling → `429`. Timeout 30 s, 512 MB. Logs `{"event": "agenda_parsed" | "agenda_parse_failed",
+  "user", "api", "model", "prompt_version", "input_tokens", "output_tokens", "latency_ms",
+  "cost_usd"}` - never the text. `make parse-logs` prints them.
+- **The URL**: `AuthType: NONE`, CORS for the site's origins (custom domain, `cloudfront.net`,
+  `localhost:3000`), `POST` only. The role may call `bedrock-mantle:CreateInference` and
+  `bedrock:InvokeModel` on `*`.
+- **Budget**: `peach-monthly`, $5 for the whole account, email on actual and on forecast > 100 %.
+- **Image**: `deploy-backend.sh` rolls the parser onto every new API image, like the report functions.
+- **Site**: `NEXT_PUBLIC_PARSER_URL` from `PARSER_URL`; without it the dialog offers only typing
+  the agenda by hand.
+- **Laptop**: `make llm-hello` (the first call), `make parse TEXT="…"` (the parser alone, prints the
+  JSON and its usage), both through the backend dev container with the CLI's credentials.
+
+**Teardown**, in this order: `make destroy-ai` ★, `make destroy-reports` ★, `make destroy-frontend`, `make destroy-backend-domain` ★,
 `make destroy-backend`, `make destroy-cognito`, then delete the certificates and the
 `peach-github-oidc` stack. On the AWS Free plan all of it is covered; on a paid plan after the
 free allowance, the micro database is the one thing billing by the hour (~$12/month), plus one
@@ -578,6 +657,8 @@ CI has no recipe of its own: it runs these targets, so a failed deploy is debugg
 | `deploy-reports` ★, `destroy-reports` ★ | the weekly report stack (`REPORTS_MAIL_DOMAIN`, `REPORT_RECIPIENTS`, `REPORTS_SCHEDULE`, `REPORTS_FAIL_WEEK` from `.env` or the command line) |
 | `report-now WEEK=2026-W41` ★, `report-ls` ★, `report-logs` ★, `report-status` ★ | queue a report on demand (no `WEEK`: last week), list the bucket, the trigger log lines, queue and DLQ depth |
 | `report-local WEEK=…` ★ | print a report built from the Compose database |
+| `deploy-ai` ★, `destroy-ai` ★ | the agenda parser stack and the budget (`PARSER_API`, `PARSER_MODEL`, `BUDGET_EMAIL`) |
+| `llm-hello` ★, `parse TEXT="…"` ★, `parse-logs` ★ | Bedrock from the laptop; the parser from the laptop; the parser's log lines |
 
 ---
 
@@ -647,7 +728,9 @@ Covered, because they break silently:
 | weekly report ★ | ISO weeks in Kyiv time (DST, week 53, year boundary), one key per week; totals against the week before, the five longest, per person, an empty week, Cyrillic; same data, same bytes |
 | report handlers ★ | builder: direct call, SQS from `make`, SQS from the schedule (no week → last week), the same week twice → one key, a bad week and `REPORTS_FAIL_WEEK` raise; mailer: CSV attached intact, never writes back, keys decoded, non-reports and no recipients send nothing |
 | `completed_at` ★ | set on becoming done (and when created done), kept by later edits, cleared on reopening |
-| frontend | `api.ts` attaches the token, parses, raises `ApiError`, signs out on `401`; board drag/edit/rollback; list grouping, edit, add-in-group, collapse ★; `auth.ts` password flow, error mapping, refresh (shared, kept on network failure, sign-out on refusal), Google PKCE ★; gate redirect, sign-in/up forms ★; dashboard figures from a known list, paging past 100 ★ |
+| agenda ★ | saved with a task and its suggestion, kept by other edits, removed by `null`; every limit validated; a malformed suggestion refused; the suggestion never returned |
+| parser ★ | both APIs against fakes: today's line with the DST offset, delimited text, forced tool (Converse), one retry with the validation error, give-up after two, refusal, no agenda; handler: token required (none, garbage, access token, wrong audience), `413` before the model, bad bodies, base64 bodies, `422`/`429`/`503` mapping, exactly one log line without the text; prices |
+| frontend | `api.ts` attaches the token, parses, raises `ApiError`, signs out on `401`; board drag/edit/rollback; list grouping, edit, add-in-group, collapse ★; `auth.ts` password flow, error mapping, refresh (shared, kept on network failure, sign-out on refusal), Google PKCE ★; gate redirect, sign-in/up forms ★; dashboard figures from a known list, paging past 100 ★; parser client: date and time zone sent, every error kind, cancel vs network ★; paste dialog: pre-filled and marked, a correction drops the mark, saved with the suggestion, a typed name kept, progress and cancel, error with a way to type by hand, no paste box without a parser, removing an agenda ★ |
 
 ---
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlignLeft, CalendarDays, Plus } from "lucide-react";
+import { AlignLeft, CalendarDays, ListChecks, Plus } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 
@@ -285,6 +285,15 @@ function BoardCard({
       <div className="mt-2 ml-6 flex items-center gap-2.5 text-xs text-muted-foreground">
         {item.description && (
           <AlignLeft aria-label="Has a description" className="size-3.5" />
+        )}
+        {item.agenda && (
+          <span
+            className="flex items-center gap-1 tabular-nums"
+            aria-label={`Agenda with ${item.agenda.items.length} topics`}
+          >
+            <ListChecks aria-hidden className="size-3.5" />
+            {item.agenda.items.length}
+          </span>
         )}
         <span className="flex items-center gap-1">
           <CalendarDays aria-hidden className="size-3.5" />

@@ -71,11 +71,45 @@ async function request<T>(
 export const itemStatuses = ["todo", "in_progress", "done"] as const;
 export const itemStatusSchema = z.enum(itemStatuses);
 
+/* The agenda of a task (backend/app/schemas/agenda.py). */
+export const agendaItemSchema = z.object({
+  topic: z.string(),
+  owner: z.string().nullable(),
+  minutes: z.number().int().nullable(),
+});
+
+export const actionItemSchema = z.object({
+  task: z.string(),
+  owner: z.string().nullable(),
+  due: z.string().nullable(), // YYYY-MM-DD
+});
+
+export const agendaSchema = z.object({
+  starts_at: z.string().nullable(), // ISO 8601 with an offset
+  duration_minutes: z.number().int().nullable(),
+  items: z.array(agendaItemSchema),
+  action_items: z.array(actionItemSchema),
+});
+
+/** What the parser returns: the agenda, plus the task's title and the language. */
+export const parsedAgendaSchema = agendaSchema.extend({
+  title: z.string().nullable(),
+  language: z.string(),
+});
+
+/** The parser's answer, and what the API stores next to the saved agenda. */
+export const aiSuggestionSchema = z.object({
+  agenda: parsedAgendaSchema,
+  model: z.string(),
+  prompt_version: z.string(),
+});
+
 export const itemSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
   status: itemStatusSchema,
+  agenda: agendaSchema.nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -101,6 +135,16 @@ export type Item = z.infer<typeof itemSchema>;
 export type ItemList = z.infer<typeof itemListSchema>;
 export type Health = z.infer<typeof healthSchema>;
 export type ItemInput = z.infer<typeof itemInputSchema>;
+export type Agenda = z.infer<typeof agendaSchema>;
+export type ParsedAgenda = z.infer<typeof parsedAgendaSchema>;
+export type AiSuggestion = z.infer<typeof aiSuggestionSchema>;
+
+/** What the dialog saves: the task, its agenda (null removes it) and, after a
+ *  paste, what the parser suggested - the API keeps it for comparison. */
+export type ItemPayload = ItemInput & {
+  agenda?: Agenda | null;
+  ai_suggestion?: AiSuggestion;
+};
 
 /* --- endpoints --- */
 
@@ -115,13 +159,13 @@ export const api = {
     return request(`/api/v1/items${suffix}`, itemListSchema);
   },
 
-  createItem: (payload: ItemInput) =>
+  createItem: (payload: ItemPayload) =>
     request("/api/v1/items", itemSchema, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
-  updateItem: (id: string, payload: Partial<ItemInput>) =>
+  updateItem: (id: string, payload: Partial<ItemPayload>) =>
     request(`/api/v1/items/${id}`, itemSchema, {
       method: "PATCH",
       body: JSON.stringify(payload),

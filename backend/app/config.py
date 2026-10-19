@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     reports_bucket: str = ""
     reports_fail_week: str = ""
 
+    # The agenda parser (app/ai/). Model and API are configuration, not code.
+    # "converse" (bedrock-runtime) is what this account can use: Claude 5.x answers
+    # "not available for this account". The lab's model is PARSER_API=messages
+    # (bedrock-mantle) with PARSER_MODEL=anthropic.claude-opus-5-5.
+    parser_api: Literal["converse", "messages"] = "converse"
+    parser_model: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    bedrock_region: str = "us-east-1"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

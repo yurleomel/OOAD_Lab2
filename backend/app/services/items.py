@@ -34,7 +34,8 @@ async def get_item(session: AsyncSession, owner_id: uuid.UUID, item_id: uuid.UUI
 
 
 async def create_item(session: AsyncSession, owner_id: uuid.UUID, payload: ItemCreate) -> Item:
-    item = Item(owner_id=owner_id, **payload.model_dump())
+    # mode="json": the agenda goes into JSONB, where a datetime must be a string.
+    item = Item(owner_id=owner_id, **payload.model_dump(mode="json"))
     if item.status == "done":
         item.completed_at = func.now()
     session.add(item)
@@ -45,7 +46,7 @@ async def create_item(session: AsyncSession, owner_id: uuid.UUID, payload: ItemC
 
 async def update_item(session: AsyncSession, item: Item, payload: ItemUpdate) -> Item:
     was_done = item.status == "done"
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    for field, value in payload.model_dump(mode="json", exclude_unset=True).items():
         setattr(item, field, value)
     # Only a transition moves completed_at: renaming a finished item must not
     # make it count as finished again this week.

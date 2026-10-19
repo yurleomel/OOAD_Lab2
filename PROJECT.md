@@ -600,14 +600,17 @@ browser ─(1 parse: text, today, tz, ID token)─► Lambda agenda-parser (API 
   sends the parser's answer along (`ai_suggestion`); the difference between it and the saved
   agenda is the quality signal (ADR `docs/adr/0006-llm-agenda-parsing.md`).
 - **The parser** (`app/ai/agenda.py`, no Lambda): one tool, `record_agenda`, whose input schema
-  is `ParsedAgenda`; today's date, weekday and UTC offset in the prompt; the pasted text inside
+  is `ParsedAgenda`; today's date and a calendar of the next fourteen days (weekday + date, starting
+  today) in the prompt, so weekdays are looked up rather than counted; the pasted text inside
   `<pasted_text>` and declared data in the system prompt; validation with one retry that shows the
-  model its error; no topics = `no_agenda`. Prompt version `agenda-v1`.
+  model its error; no topics = `no_agenda`. `starts_at` is a wall-clock time (any offset the model
+  writes is stripped, the browser adds the offset of that day), and it is dropped when the text
+  holds no clock time. Prompt version `agenda-v2` (v1's mistakes and the fixes: `docs/lab6.md`).
 - **Two APIs behind it** (`PARSER_API`): `converse` (bedrock-runtime, provider-neutral, the tool
   can be forced) and `messages` (the Anthropic Messages API on bedrock-mantle, the only way to
   Claude 5.x, no forced tool). **This account** answers "not available for this account" for every
-  Claude 5.x model on both APIs (the Anthropic models were never opened to it beyond 4.x), so it
-  runs `converse` + Claude Haiku 4.5. The lab's Opus 5.5 is
+  Claude 5.x model on both APIs, Marketplace agreements accepted; Claude 4.x works once the
+  Anthropic use-case form is on file. So it runs `converse` + Claude Haiku 4.5. The lab's Opus 5.5 is
   `PARSER_API=messages PARSER_MODEL=anthropic.claude-opus-5-5 make deploy-ai`, no code change.
 - **The handler** (`app.ai.agenda_lambda.handler`, the API image with another `Command`): Cognito
   ID token checked against the pool's JWKS (`app/id_tokens.py`), `413` before the model,

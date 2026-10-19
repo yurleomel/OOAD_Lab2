@@ -71,10 +71,11 @@ press Save. The constraints:
 
 ## Consequences
 
-- **Cost per parse:** with Haiku 4.5, ≈ 1,600 input tokens (the tool schema is most of it) and
-  ≈ 250–450 output tokens: ≈ **$0.003**, measured per input in `docs/lab6.md`. Opus 5.5 at the
-  lab's prices would be ≈ $0.01. Twenty organisations × 30 agendas a week ≈ 2,600 parses a
-  month ≈ **$8 a month** on Haiku 4.5: about one VPC endpoint, which this design does not need.
+- **Cost per parse:** with Haiku 4.5 and `agenda-v2`, ≈ 1,750 input tokens (the system prompt,
+  tool schema and calendar are ~1,650 of them) and 180–290 output tokens: **$0.0026–0.0032**,
+  measured per input in `docs/lab6.md`. Twenty organisations × 30 agendas a week ≈ 2,600 parses a
+  month ≈ **$7 a month**: one VPC endpoint's worth, which this design does not need. At the lab's
+  prices Opus 5.5 would be ≈ $0.012 a parse (≈ $31 a month), Haiku 5.5 ≈ $0.0003.
 - **What is logged:** one JSON line per parse (`agenda_parsed` / `agenda_parse_failed`) in
   `/aws/lambda/peach-agenda-parser`, 14 days. The pasted text and the parsed agenda are never
   logged; the suggestion is kept only in the user's own row (`items.ai_suggestion`).

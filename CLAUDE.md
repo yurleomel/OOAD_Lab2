@@ -18,7 +18,7 @@ upstream repository and are being written here.
 | CI: `ci.yml` - ruff, pytest on Postgres, eslint/prettier/tsc, vitest | done |
 | CD: `deploy.yml`, OIDC role `peach-github-deploy` (trusts this repo's `main` only), repo variables | done - every push to `main` checks, then ships the backend (image tagged with the SHA) and the site |
 | Lab 5 weekly report: `app/reports/` (report, builder, mailer), `items.completed_at` (0004), `infra/reports.yaml`, `deploy-reports.sh`, `report.sh`, `make report-*`; submission notes and answers in `docs/lab5.md` | code + tests done (`pytest` 82 passed), template passes cfn-lint; not deployed yet |
-| Lab 6 Paste an agenda: `app/ai/` (parser, Lambda handler, prices), agenda on tasks (`0005`), `infra/ai.yml` (parser outside the VPC + $5 budget), `deploy-ai.sh`, `llm.sh`, `make llm-hello/parse/deploy-ai/parse-logs`, the paste screen; ADR `docs/adr/0006-llm-agenda-parsing.md`, C4 `docs/architecture.md`, submission notes `docs/lab6.md` | code + tests done (`pytest` 114, vitest 72); `peach-ai` deployed; runs Converse + Claude Haiku 4.5 (see gotcha) |
+| Lab 6 Paste an agenda: `app/ai/` (parser, Lambda handler, prices), agenda on tasks (`0005`), `infra/ai.yml` (parser outside the VPC + $5 budget), `deploy-ai.sh`, `llm.sh`, `make llm-hello/parse/deploy-ai/parse-logs`, the paste screen; ADR `docs/adr/0006-llm-agenda-parsing.md`, C4 `docs/architecture.md`, submission notes `docs/lab6.md` | done - `pytest` 124, vitest 72; `peach-ai` live (parser URL in `PARSER_URL`, $5 budget `peach-monthly`), prompt `agenda-v2`, Converse + Claude Haiku 4.5 (see gotcha); checked on app.mylanora.world: paste, pre-fill, correct, save |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
 
 ## Running
@@ -75,7 +75,7 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
   to verify each `REPORT_RECIPIENTS` address (a link arrives by email); the `mylanora.world`
   identity needs its three DKIM CNAMEs at Namecheap.
 - Bedrock on this account: Anthropic models need the **use-case form** (Bedrock -> Model catalog,
-  filled by the account owner; `aws bedrock get-use-case-for-model-access` shows it) and, for the
+  filled by the account owner on 2026-10-20; `aws bedrock get-use-case-for-model-access` shows it) and, for the
   Claude 5.x models, a Marketplace agreement (`create-foundation-model-agreement`, done for Opus 5.5
   and Haiku 5.5). Claude 5.x still answered "not available for this account" on both APIs, so the
   parser runs `PARSER_API=converse` with `us.anthropic.claude-haiku-4-5-20251001-v1:0`; the lab's
@@ -84,5 +84,8 @@ docker compose run --rm --no-deps -e NODE_ENV=production -e NEXT_OUTPUT=export f
   not available`, never a hint about forms; check `aws bedrock get-foundation-model-availability`.
 - `make parse` / `make llm-hello` run in the backend dev container with `~/.aws` mounted read-only;
   `make deploy-ai` comes after `make deploy-backend` (it copies the API's image and pool ids).
+- Namecheap switches the domain's DNS off (nameservers `failed-whois-verification.namecheap.com`)
+  when the registrant email is not verified; both `app.` and `api.` then go dark. The owner clicks
+  Namecheap's verification link; the records come back by themselves.
 - Remotes: `origin` is the student repository, `upstream` is the course repository. Never push to
   `upstream`.

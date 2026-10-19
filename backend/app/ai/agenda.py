@@ -1,10 +1,19 @@
 """Pasted text in, a validated agenda out: the parser, with no Lambda in it.
 
 The model answers by calling one tool, ``record_agenda``, whose input schema is
-``ParsedAgenda``. Claude Opus 5.5 on Bedrock accepts no forced tool choice and
-the Messages API there has no structured outputs, so the system prompt asks for
-the tool and the result is validated here. Invalid output never leaves this
-function: the model sees its validation error once, then the parse fails.
+``ParsedAgenda``, and the result is validated here. Invalid output never leaves
+this function: the model sees its validation error once, then the parse fails.
+
+Two ways to reach Claude on Bedrock sit behind ``parse_agenda`` (PARSER_API):
+
+- ``converse`` - AWS's provider-neutral Converse API (bedrock-runtime). What
+  this account can use today: the Claude 5.x models answer "not available for
+  this account", Claude Haiku 4.5 answers. Here the tool can be forced.
+- ``messages`` - the Anthropic Messages API on Bedrock (bedrock-mantle), the
+  only way to the current Claude models. Opus 5.5 accepts no forced tool choice,
+  so the system prompt asks for the tool.
+
+The prompt, the schema, the validation and the retry are the same for both.
 
 Run it from a laptop with ``make parse TEXT="..."`` (``python -m app.ai.agenda``).
 """
@@ -12,6 +21,7 @@ Run it from a laptop with ``make parse TEXT="..."`` (``python -m app.ai.agenda``
 import json
 import sys
 import time
+from dataclasses import dataclass
 from datetime import date, datetime
 from functools import cache
 from typing import Any
@@ -26,13 +36,16 @@ from app.schemas.agenda import ParsedAgenda
 PROMPT_VERSION = "agenda-v1"
 # Checked by the handler before the model is called: every character is paid for.
 MAX_TEXT_CHARS = 10_000
+MAX_OUTPUT_TOKENS = 4096
 
+TOOL_NAME = "record_agenda"
+TOOL_DESCRIPTION = (
+    "Record the meeting agenda found in the user's text. "
+    "Leave a field empty when the text does not say it."
+)
 RECORD_AGENDA = {
-    "name": "record_agenda",
-    "description": (
-        "Record the meeting agenda found in the user's text. "
-        "Leave a field empty when the text does not say it."
-    ),
+    "name": TOOL_NAME,
+    "description": TOOL_DESCRIPTION,
     "input_schema": ParsedAgenda.model_json_schema(),
 }
 
@@ -57,11 +70,127 @@ class AgendaParseError(Exception):
         self.no_agenda = no_agenda
 
 
-@cache
-def _client() -> Any:
-    from anthropic import AnthropicBedrockMantle
+@dataclass
+class Turn:
+    """One answer of the model, in the same shape whichever API gave it."""
 
-    return AnthropicBedrockMantle(aws_region=get_settings().bedrock_region)
+    call_id: str | None  # None: the model did not call the tool
+    call_input: Any
+    stop_reason: str
+    input_tokens: int
+    output_tokens: int
+
+
+class MessagesConversation:
+    """The Anthropic Messages API on Bedrock (bedrock-mantle)."""
+
+    def __init__(self, client: Any, model: str, prompt: str) -> None:
+        self.client, self.model = client, model
+        self.messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+        self.last: Any = None
+
+    def ask(self) -> Turn:
+        msg = self.client.messages.create(
+            model=self.model,
+            max_tokens=MAX_OUTPUT_TOKENS,
+            output_config={"effort": "low"},
+            system=SYSTEM,
+            tools=[RECORD_AGENDA],
+            messages=self.messages,
+        )
+        self.last = msg
+        call = next((b for b in msg.content if b.type == "tool_use"), None)
+        return Turn(
+            call.id if call else None,
+            call.input if call else None,
+            msg.stop_reason,
+            msg.usage.input_tokens,
+            msg.usage.output_tokens,
+        )
+
+    def reject(self, call_id: str, error: str) -> None:
+        self.messages += [
+            {"role": "assistant", "content": self.last.content},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": call_id,
+                        "content": error,
+                        "is_error": True,
+                    }
+                ],
+            },
+        ]
+
+
+class ConverseConversation:
+    """AWS's Converse API (bedrock-runtime), the same request for every provider."""
+
+    def __init__(self, client: Any, model: str, prompt: str) -> None:
+        self.client, self.model = client, model
+        self.messages: list[dict[str, Any]] = [{"role": "user", "content": [{"text": prompt}]}]
+        self.last: Any = None
+
+    def ask(self) -> Turn:
+        resp = self.client.converse(
+            modelId=self.model,
+            system=[{"text": SYSTEM}],
+            messages=self.messages,
+            inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS},
+            toolConfig={
+                "tools": [
+                    {
+                        "toolSpec": {
+                            "name": TOOL_NAME,
+                            "description": TOOL_DESCRIPTION,
+                            "inputSchema": {"json": RECORD_AGENDA["input_schema"]},
+                        }
+                    }
+                ],
+                "toolChoice": {"tool": {"name": TOOL_NAME}},
+            },
+        )
+        content = resp["output"]["message"]["content"]
+        self.last = content
+        call = next((b["toolUse"] for b in content if "toolUse" in b), None)
+        return Turn(
+            call["toolUseId"] if call else None,
+            call["input"] if call else None,
+            resp["stopReason"],
+            resp["usage"]["inputTokens"],
+            resp["usage"]["outputTokens"],
+        )
+
+    def reject(self, call_id: str, error: str) -> None:
+        self.messages += [
+            {"role": "assistant", "content": self.last},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "toolResult": {
+                            "toolUseId": call_id,
+                            "content": [{"text": error}],
+                            "status": "error",
+                        }
+                    }
+                ],
+            },
+        ]
+
+
+@cache
+def _client(api: str) -> Any:
+    region = get_settings().bedrock_region
+    if api == "messages":
+        from anthropic import AnthropicBedrockMantle
+
+        return AnthropicBedrockMantle(aws_region=region)
+    import boto3
+
+    return boto3.client("bedrock-runtime", region_name=region)
 
 
 def _today_line(today: date, tz: str) -> str:
@@ -73,49 +202,26 @@ def _today_line(today: date, tz: str) -> str:
 
 
 def parse_agenda(
-    text: str, today: date, tz: str, *, client: Any = None
+    text: str, today: date, tz: str, *, client: Any = None, api: str | None = None
 ) -> tuple[ParsedAgenda, Usage]:
-    client = client or _client()
-    messages: list[dict[str, Any]] = [
-        {
-            "role": "user",
-            "content": f"{_today_line(today, tz)}\n\n<pasted_text>\n{text}\n</pasted_text>",
-        }
-    ]
+    settings = get_settings()
+    api = api or settings.parser_api
+    prompt = f"{_today_line(today, tz)}\n\n<pasted_text>\n{text}\n</pasted_text>"
+    kind = MessagesConversation if api == "messages" else ConverseConversation
+    conversation = kind(client or _client(api), settings.parser_model, prompt)
     usage: Usage = {"input_tokens": 0, "output_tokens": 0}
 
     for _ in range(2):  # one retry, then give up
-        msg = client.messages.create(
-            model=get_settings().parser_model,
-            max_tokens=4096,
-            output_config={"effort": "low"},
-            system=SYSTEM,
-            tools=[RECORD_AGENDA],
-            messages=messages,
-        )
-        usage["input_tokens"] += msg.usage.input_tokens
-        usage["output_tokens"] += msg.usage.output_tokens
+        turn = conversation.ask()
+        usage["input_tokens"] += turn.input_tokens
+        usage["output_tokens"] += turn.output_tokens
 
-        call = next((b for b in msg.content if b.type == "tool_use"), None)
-        if call is None:  # e.g. stop_reason == "refusal"
-            raise AgendaParseError(f"no agenda returned (stop_reason={msg.stop_reason})", usage)
+        if turn.call_id is None:  # e.g. stop_reason == "refusal"
+            raise AgendaParseError(f"no agenda returned (stop_reason={turn.stop_reason})", usage)
         try:
-            agenda = ParsedAgenda.model_validate(call.input)
+            agenda = ParsedAgenda.model_validate(turn.call_input)
         except ValidationError as e:  # show the model its mistake once
-            messages += [
-                {"role": "assistant", "content": msg.content},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": call.id,
-                            "content": str(e),
-                            "is_error": True,
-                        }
-                    ],
-                },
-            ]
+            conversation.reject(turn.call_id, str(e))
             continue
         if not agenda.items:
             raise AgendaParseError("the text has no agenda in it", usage, no_agenda=True)

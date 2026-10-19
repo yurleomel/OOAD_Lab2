@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 import pytest
 from anthropic import RateLimitError
+from botocore.exceptions import ClientError
 
 from app.ai import agenda_lambda
 from app.ai.agenda import AgendaParseError
@@ -60,7 +61,7 @@ def test_parses_and_logs_one_line(parsed, caplog) -> None:
     assert response["statusCode"] == 200
     body = _body(response)
     assert body["agenda"]["items"][0]["owner"] == "Olena"
-    assert body["model"] == "anthropic.claude-opus-5-5"
+    assert body["model"] == "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     assert body["prompt_version"] == "agenda-v1"
     assert parsed == [("Monday 10:00 pricing sync", date(2026, 10, 19), "Europe/Kyiv")]
 
@@ -70,7 +71,8 @@ def test_parses_and_logs_one_line(parsed, caplog) -> None:
     assert line["event"] == "agenda_parsed"
     assert line["user"] == "alice-sub"
     assert line["input_tokens"] == 2400 and line["output_tokens"] == 350
-    assert line["cost_usd"] == pytest.approx(2400 * 4 / 1e6 + 350 * 20 / 1e6)
+    assert line["api"] == "converse"
+    assert line["cost_usd"] == pytest.approx(2400 * 1 / 1e6 + 350 * 5 / 1e6)
     assert isinstance(line["latency_ms"], int)
     # Nothing of the pasted text reaches the log.
     assert "pricing" not in json.dumps(line)
@@ -140,3 +142,12 @@ def test_throttling_is_a_429(monkeypatch) -> None:
     response = agenda_lambda.handler(_event(), None)
     assert response["statusCode"] == 429
     assert _body(response)["error"] == "busy"
+
+
+@pytest.mark.parametrize(("code", "status"), [("ThrottlingException", 429), ("ModelError", 503)])
+def test_converse_errors(monkeypatch, code, status) -> None:
+    def fails(*_: Any) -> None:
+        raise ClientError({"Error": {"Code": code, "Message": "nope"}}, "Converse")
+
+    monkeypatch.setattr(agenda_lambda, "parse_agenda", fails)
+    assert agenda_lambda.handler(_event(), None)["statusCode"] == status

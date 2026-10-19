@@ -7,7 +7,8 @@
 #
 # The container gets the same AWS credentials the deploy scripts use: AWS_* from
 # .env or the shell, and ~/.aws (read-only) for profiles and SSO.
-# PARSER_MODEL=anthropic.claude-haiku-5-5 tries another model.
+# PARSER_MODEL=us.anthropic.claude-sonnet-4-6 tries another model; PARSER_API=messages
+# with PARSER_MODEL=anthropic.claude-opus-5-5 is the lab's own (bedrock-mantle).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,7 +26,7 @@ if [[ -f "${ENV_FILE}" ]]; then
 fi
 
 args=(run --rm --no-deps -e APP_ENV=development -e BEDROCK_REGION="${AWS_REGION:-us-east-1}")
-for var in AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN PARSER_MODEL; do
+for var in AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN PARSER_API PARSER_MODEL; do
   # A blank AWS_PROFILE would be read as a profile named "": pass only what is set.
   [[ -n "${!var:-}" ]] && args+=(-e "${var}=${!var}")
 done

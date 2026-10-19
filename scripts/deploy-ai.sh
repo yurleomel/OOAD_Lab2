@@ -7,7 +7,9 @@
 # comes first. Writes PARSER_URL to .env (deploy-frontend.sh builds against it)
 # and to the repository variable CI uses. Safe to re-run.
 #
-#   PARSER_MODEL   default anthropic.claude-opus-5-5; a plain re-run goes back to it
+#   PARSER_API     converse (default) or messages; a plain re-run goes back to converse
+#   PARSER_MODEL   default us.anthropic.claude-haiku-4-5-20251001-v1:0, the same
+#                  way back. The lab's: PARSER_API=messages PARSER_MODEL=anthropic.claude-opus-5-5
 #   BUDGET_EMAIL   who the budget alarm emails (default: the first REPORT_RECIPIENTS)
 set -euo pipefail
 
@@ -104,7 +106,8 @@ BUDGET_EMAIL="${BUDGET_EMAIL:-${REPORT_RECIPIENTS%%,*}}"
 BUDGET_EMAIL="${BUDGET_EMAIL// /}"
 [[ -n "${BUDGET_EMAIL}" ]] || warn "BUDGET_EMAIL and REPORT_RECIPIENTS are empty - no budget alarm"
 
-log "image ${IMAGE_URI##*/} (${ARCHITECTURE}), model ${PARSER_MODEL:-anthropic.claude-opus-5-5}"
+PARSER_API="${PARSER_API:-converse}"
+log "image ${IMAGE_URI##*/} (${ARCHITECTURE}), api ${PARSER_API}, model ${PARSER_MODEL:-us.anthropic.claude-haiku-4-5-20251001-v1:0}"
 log "origins ${ORIGINS}"
 
 # --- deploy -----------------------------------------------------------------
@@ -117,7 +120,8 @@ IMAGE_URI="${IMAGE_URI}" \
 ARCHITECTURE="${ARCHITECTURE}" \
 POOL_ID="${POOL_ID}" \
 CLIENT_ID="${CLIENT_ID}" \
-MODEL="${PARSER_MODEL:-anthropic.claude-opus-5-5}" \
+API="${PARSER_API}" \
+MODEL="${PARSER_MODEL:-us.anthropic.claude-haiku-4-5-20251001-v1:0}" \
 ORIGINS="${ORIGINS}" \
 BUDGET_EMAIL="${BUDGET_EMAIL}" \
 python3 - "${PARAMS_FILE}" <<'PY'
@@ -130,6 +134,7 @@ params = {
     "Architecture": env["ARCHITECTURE"],
     "CognitoUserPoolId": env["POOL_ID"],
     "CognitoClientId": env["CLIENT_ID"],
+    "ParserApi": env["API"],
     "ParserModel": env["MODEL"],
     "AllowedOrigins": env["ORIGINS"],
     "BudgetEmail": env["BUDGET_EMAIL"],
@@ -183,7 +188,7 @@ fi
 
 echo
 echo "  parser     ${PARSER_URL}"
-echo "  model      ${PARSER_MODEL:-anthropic.claude-opus-5-5}"
+echo "  model      ${PARSER_API} ${PARSER_MODEL:-us.anthropic.claude-haiku-4-5-20251001-v1:0}"
 echo "  logs       make parse-logs"
 [[ -z "${BUDGET_EMAIL}" ]] || echo "  budget     $(output BudgetName): \$5/month, alarms by email"
 echo

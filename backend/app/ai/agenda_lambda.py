@@ -28,6 +28,9 @@ from app.ai.pricing import cost_usd
 from app.config import get_settings
 from app.id_tokens import InvalidToken, KeysUnavailable, verify_pool_token
 
+# Bedrock's error codes for "slow down" on the Converse API.
+THROTTLED = {"ThrottlingException", "TooManyRequestsException", "ServiceQuotaExceededException"}
+
 logger = logging.getLogger("agenda-parser")
 logger.setLevel(logging.INFO)
 
@@ -52,12 +55,14 @@ def _error(status: int, code: str, message: str) -> dict[str, Any]:
 
 
 def _log(event: str, user: str, started: float, usage: dict[str, int], **extra: Any) -> None:
-    model = get_settings().parser_model
+    settings = get_settings()
+    model = settings.parser_model
     logger.info(
         json.dumps(
             {
                 "event": event,
                 "user": user,
+                "api": settings.parser_api,
                 "model": model,
                 "prompt_version": PROMPT_VERSION,
                 **usage,
@@ -100,6 +105,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         return _error(413, "too_long", f"The text is longer than {MAX_TEXT_CHARS:,} characters")
 
     from anthropic import APIConnectionError, APIStatusError, OverloadedError, RateLimitError
+    from botocore.exceptions import BotoCoreError, ClientError
 
     started = time.monotonic()
     try:
@@ -111,7 +117,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     except RateLimitError, OverloadedError:
         logger.warning("bedrock throttled the parse")
         return _error(429, "busy", "The parser is busy, try again in a minute")
-    except (APIStatusError, APIConnectionError) as exc:
+    except ClientError as exc:  # the Converse API
+        if exc.response.get("Error", {}).get("Code") in THROTTLED:
+            logger.warning("bedrock throttled the parse")
+            return _error(429, "busy", "The parser is busy, try again in a minute")
+        logger.exception("bedrock call failed: %s", exc)
+        return _error(503, "unavailable", "The parser is unavailable right now")
+    except (APIStatusError, APIConnectionError, BotoCoreError) as exc:
         # Every other error status and a failed connection: Bedrock, not the text, is the problem.
         logger.exception("bedrock call failed: %s", exc)
         return _error(503, "unavailable", "The parser is unavailable right now")

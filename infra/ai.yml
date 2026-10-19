@@ -35,12 +35,21 @@ Parameters:
   CognitoClientId:
     Type: String
 
+  ParserApi:
+    Type: String
+    Default: converse
+    AllowedValues: [converse, messages]
+    Description: >-
+      converse is AWS's Converse API (bedrock-runtime); messages is the
+      Anthropic Messages API on Bedrock (bedrock-mantle), the only way to the
+      Claude 5.x models.
+
   ParserModel:
     Type: String
-    Default: anthropic.claude-opus-5-5
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
     Description: >-
-      Bedrock model id. Configuration, not code: anthropic.claude-haiku-5-5
-      costs about 40 times less per parse.
+      Bedrock model id or inference profile. Configuration, not code: the
+      lab's anthropic.claude-opus-5-5 is ParserApi=messages and this id.
 
   AllowedOrigins:
     Type: CommaDelimitedList
@@ -85,12 +94,15 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # The Anthropic Messages API on Bedrock (bedrock-mantle). Any
-              # model for now; narrowing it to ParserModel is a discussion
-              # question in docs/lab6.md.
+              # Any model for now; narrowing it to ParserModel is a discussion
+              # question in docs/lab6.md. bedrock-mantle for the Messages API,
+              # bedrock:InvokeModel for Converse (an inference profile and the
+              # foundation models it routes to, in several regions).
               - Sid: Inference
                 Effect: Allow
-                Action: bedrock-mantle:CreateInference
+                Action:
+                  - bedrock-mantle:CreateInference
+                  - bedrock:InvokeModel
                 Resource: "*"
       Tags:
         - Key: PROJECT_NAME
@@ -129,6 +141,7 @@ Resources:
       Environment:
         Variables:
           APP_ENV: production
+          PARSER_API: !Ref ParserApi
           PARSER_MODEL: !Ref ParserModel
           BEDROCK_REGION: !Ref AWS::Region
           COGNITO_REGION: !Ref AWS::Region

@@ -62,7 +62,7 @@ def test_parses_and_logs_one_line(parsed, caplog) -> None:
     body = _body(response)
     assert body["agenda"]["items"][0]["owner"] == "Olena"
     assert body["model"] == "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-    assert body["prompt_version"] == "agenda-v1"
+    assert body["prompt_version"] == "agenda-v2"
     assert parsed == [("Monday 10:00 pricing sync", date(2026, 10, 19), "Europe/Kyiv")]
 
     lines = [json.loads(r.getMessage()) for r in caplog.records if r.name == "agenda-parser"]

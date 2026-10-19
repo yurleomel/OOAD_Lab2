@@ -18,7 +18,7 @@ AGENDA = {
 SUGGESTION = {
     "agenda": {
         "title": "синк по прайсингу",
-        "starts_at": "2026-10-19T10:00:00+03:00",
+        "starts_at": "2026-10-19T10:00:00",
         "duration_minutes": 45,
         "items": [{"topic": "нові тарифи Pro", "owner": "Олена", "minutes": 15}],
         "action_items": [],

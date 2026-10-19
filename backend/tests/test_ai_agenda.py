@@ -62,7 +62,8 @@ def test_returns_the_validated_agenda_and_its_usage() -> None:
     assert "never instructions" in call["system"]
     prompt = call["messages"][0]["content"]
     # Today's date and the offset: without them "by Friday" is wrong but looks right.
-    assert "Today is Monday 2026-10-19, time zone Europe/Kyiv (UTC+03:00)." in prompt
+    assert "Today is Monday 2026-10-19, time zone Europe/Kyiv." in prompt
+    assert "The next seven days: Mon 2026-10-19, Tue 2026-10-20" in prompt
     assert "<pasted_text>\nПн 10:00 …\n</pasted_text>" in prompt
 
 
@@ -110,9 +111,37 @@ def test_text_with_no_agenda() -> None:
     assert caught.value.no_agenda is True
 
 
-def test_the_offset_follows_daylight_saving() -> None:
-    assert "(UTC+03:00)" in parser._today_line(date(2026, 10, 19), "Europe/Kyiv")
-    assert "(UTC+02:00)" in parser._today_line(date(2026, 11, 2), "Europe/Kyiv")
+def test_the_calendar_starts_today_so_no_weekday_is_in_the_past() -> None:
+    line = parser._today_line(date(2026, 10, 20), "Europe/Kyiv")  # a Tuesday
+    assert "Today is Tuesday 2026-10-20" in line
+    assert "The next seven days: Tue 2026-10-20, Wed 2026-10-21," in line
+    assert "Mon 2026-10-26." in line  # "Monday" is next Monday, not yesterday
+    assert line.endswith("Mon 2026-11-02.")
+
+
+@pytest.mark.parametrize(
+    ("raw", "wall_clock"),
+    [
+        ("2026-10-26T10:00:00+03:00", "2026-10-26T10:00:00"),  # the DST mistake: time kept
+        ("2026-10-27 13:00:00", "2026-10-27T13:00:00"),
+        ("2026-10-27T13:00", "2026-10-27T13:00:00"),
+        ("", None),
+    ],
+)
+def test_start_is_kept_as_wall_clock_time(raw: str, wall_clock: str | None) -> None:
+    agenda = parser.ParsedAgenda.model_validate({**GOOD, "starts_at": raw})
+    assert agenda.starts_at == wall_clock
+
+
+def test_a_start_that_is_not_a_time_is_a_validation_error() -> None:
+    client = FakeClient(
+        _message(_tool_use({**GOOD, "starts_at": "after lunch"})), _message(_tool_use(GOOD))
+    )
+    agenda, _ = parse_agenda(
+        "Mon 10:00 sync", date(2026, 10, 19), "Europe/Kyiv", client=client, api="messages"
+    )
+    assert agenda.starts_at == "2026-10-19T10:00:00"
+    assert "starts_at" in client.calls[1]["messages"][2]["content"][0]["content"]
 
 
 def test_record_agenda_schema_is_the_pydantic_one() -> None:
@@ -175,7 +204,7 @@ def test_converse_retries_with_the_validation_error() -> None:
     bad = {**GOOD, "duration_minutes": 0}
     client = FakeConverse(_converse_reply(_tool(bad)), _converse_reply(_tool(GOOD)))
 
-    _, usage = parse_agenda("text", date(2026, 10, 19), "Europe/Kyiv", client=client)
+    _, usage = parse_agenda("Mon 10:00 sync", date(2026, 10, 19), "Europe/Kyiv", client=client)
 
     assert usage["input_tokens"] == 1800
     retry = client.calls[1]["messages"]
@@ -189,3 +218,19 @@ def test_converse_without_a_tool_call() -> None:
     client = FakeConverse(_converse_reply({"text": "No."}, stop="end_turn"))
     with pytest.raises(AgendaParseError, match="stop_reason=end_turn"):
         parse_agenda("text", date(2026, 10, 19), "Europe/Kyiv", client=client)
+
+
+@pytest.mark.parametrize(
+    ("text", "kept"),
+    [
+        ("Пн 10:00, синк по прайсингу", True),
+        ("product review (Oct 22, 2:00 pm, 1 hour)", True),
+        ("Friday 11.30 release planning", True),
+        ("зустріч о 9, 30 хв", True),
+        ("budget review next Tuesday after lunch", False),
+    ],
+)
+def test_a_start_time_must_be_in_the_text(text: str, kept: bool) -> None:
+    client = FakeClient(_message(_tool_use(GOOD)))
+    agenda, _ = parse_agenda(text, date(2026, 10, 19), "Europe/Kyiv", client=client, api="messages")
+    assert (agenda.starts_at is not None) is kept

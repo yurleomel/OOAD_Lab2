@@ -68,6 +68,17 @@ API_URL="${API_URL%/}"
 
 log "building against ${API_URL}"
 
+# The agenda parser (make deploy-ai). Without it the build simply has no
+# "Paste an agenda" box; typing an agenda by hand still works.
+PARSER_URL="${PARSER_URL:-}"
+PARSER_URL="${PARSER_URL%/}"
+if [[ -n "${PARSER_URL}" ]]; then
+  [[ "${PARSER_URL}" == https://* ]] || die "PARSER_URL must be https://"
+  log "agenda parser at ${PARSER_URL}"
+else
+  warn "PARSER_URL is not set - building without Paste an agenda (make deploy-ai)"
+fi
+
 # The Cognito ids are compiled in too; without them nobody could sign in.
 [[ -n "${COGNITO_CLIENT_ID:-}" && -n "${COGNITO_DOMAIN:-}" && -n "${COGNITO_USER_POOL_ID:-}" ]] \
   || die "COGNITO_CLIENT_ID / COGNITO_DOMAIN / COGNITO_USER_POOL_ID are not set in .env - run make deploy-cognito first"
@@ -122,6 +133,7 @@ rm -rf "${APP}/out"
   NEXT_PUBLIC_COGNITO_CLIENT_ID="${COGNITO_CLIENT_ID}" \
   NEXT_PUBLIC_COGNITO_DOMAIN="${COGNITO_DOMAIN}" \
   NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED="${COGNITO_GOOGLE_ENABLED:-false}" \
+  NEXT_PUBLIC_PARSER_URL="${PARSER_URL}" \
   "${PM[@]}" build)
 [[ -f "${APP}/out/index.html" ]] || die "the export produced no out/index.html"
 

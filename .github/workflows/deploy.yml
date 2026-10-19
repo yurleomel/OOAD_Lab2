@@ -100,6 +100,8 @@ jobs:
           COGNITO_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
           COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
           COGNITO_GOOGLE_ENABLED: ${{ vars.COGNITO_GOOGLE_ENABLED || 'false' }}
+          # Set by make deploy-ai. Empty builds the site without the paste box.
+          PARSER_URL: ${{ vars.PARSER_URL }}
 
       - name: Summary
         if: always()

@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     reports_bucket: str = ""
     reports_fail_week: str = ""
 
+    # The agenda parser (app/ai/). The model is configuration, not code: trying
+    # Haiku is PARSER_MODEL=anthropic.claude-haiku-5-5 and a redeploy, no commit.
+    parser_model: str = "anthropic.claude-opus-5-5"
+    bedrock_region: str = "us-east-1"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

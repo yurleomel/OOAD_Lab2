@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,3 +46,7 @@ class Item(Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
+    # The agenda, when the task is a meeting (app/schemas/agenda.py), and what
+    # the parser suggested for it. Validated by the API schemas on the way in.
+    agenda: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    ai_suggestion: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

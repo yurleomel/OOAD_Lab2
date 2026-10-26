@@ -136,3 +136,19 @@ jobs:
 
       - name: vitest
         run: pnpm test
+
+  # Offline: formatting, syntax, types and references. The plan against the
+  # real cloud is HCP Terraform's check on the same pull request.
+  terraform:
+    name: Terraform (fmt + validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
+      - name: make infra-check
+        run: make infra-check

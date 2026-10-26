@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Day-to-day commands for the deployed weekly report (infra/reports.yaml).
+# Day-to-day commands for the deployed weekly report (infra/reports.tf).
 #
 #   report.sh now [WEEK]   queue a report; no week means the last complete one
 #   report.sh ls           the reports in the bucket
@@ -24,13 +24,12 @@ for var in AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 done
 
 PROJECT_NAME="${PROJECT_NAME:-peach}"
-STACK_NAME="${REPORTS_STACK_NAME:-${PROJECT_NAME}-reports}"
 export AWS_DEFAULT_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 
+# The queue and bucket names come from the Terraform state (infra/outputs.tf).
 output() {
-  aws cloudformation describe-stacks --stack-name "${STACK_NAME}" \
-    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text 2>/dev/null \
-    || die "stack ${STACK_NAME} does not exist - run make deploy-reports first"
+  terraform -chdir="${ROOT}/infra" output -raw "$1" 2>/dev/null \
+    || die "no Terraform output $1 - run terraform login and make infra-init first"
 }
 
 case "${1:-}" in
@@ -42,12 +41,12 @@ case "${1:-}" in
     else
       body='{"week": null, "source": "make"}'
     fi
-    id="$(aws sqs send-message --queue-url "$(output QueueUrl)" --message-body "${body}" \
+    id="$(aws sqs send-message --queue-url "$(output report_queue_url)" --message-body "${body}" \
       --query MessageId --output text)"
     echo "queued ${body} as message ${id}"
     ;;
   ls)
-    aws s3 ls "s3://$(output BucketName)/reports/" --recursive
+    aws s3 ls "s3://$(output reports_bucket)/reports/" --recursive
     ;;
   logs)
     since=$(( ($(date +%s) - ${SINCE_HOURS:-24} * 3600) * 1000 ))
@@ -63,7 +62,7 @@ for e in json.load(sys.stdin)["events"]:
     done
     ;;
   status)
-    for name in QueueUrl DeadLetterQueueUrl; do
+    for name in report_queue_url report_dlq_url; do
       url="$(output "${name}")"
       aws sqs get-queue-attributes --queue-url "${url}" \
         --attribute-names ApproximateNumberOfMessages ApproximateNumberOfMessagesNotVisible \

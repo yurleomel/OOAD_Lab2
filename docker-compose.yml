@@ -31,7 +31,7 @@ services:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      # From make deploy-cognito. Unset, every /api/v1 route answers 503.
+      # From make infra-env. Unset, every /api/v1 route answers 503.
       COGNITO_REGION: ${COGNITO_REGION:-us-east-1}
       COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
       COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}

@@ -1,7 +1,7 @@
 import { aiSuggestionSchema, type AiSuggestion } from "@/lib/api";
 import { getIdToken, signOut } from "@/lib/auth";
 
-/** The agenda parser's function URL (make deploy-ai), compiled in at build time.
+/** The agenda parser's function URL (make infra-env), compiled in at build time.
  *  Empty in a build without one: the paste box is then not offered at all. */
 export function parserUrl(): string {
   return (process.env.NEXT_PUBLIC_PARSER_URL ?? "").replace(/\/+$/, "");

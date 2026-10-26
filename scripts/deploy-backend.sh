@@ -203,7 +203,7 @@ if [[ -n "${COGNITO_USER_POOL_ID:-}" ]]; then
   log "fetching signing keys for ${COGNITO_USER_POOL_ID}"
   COGNITO_JWKS="$(curl -fsS --max-time 20 "${JWKS_URL}" \
     | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), separators=(",", ":")))')" \
-    || die "could not fetch ${JWKS_URL} - is COGNITO_USER_POOL_ID right? (make deploy-cognito)"
+    || die "could not fetch ${JWKS_URL} - is COGNITO_USER_POOL_ID right? (make infra-env)"
 else
   warn "COGNITO_USER_POOL_ID unset - keeping the stack's current Cognito settings"
 fi
@@ -324,7 +324,7 @@ fi
 
 # --- weekly report and agenda parser ----------------------------------------
 
-# The report functions (infra/reports.yaml) and the agenda parser (infra/ai.yml)
+# The report functions (infra/reports.tf) and the agenda parser (infra/ai.tf)
 # run this same image. Move them with the API, so the builder never queries a
 # schema it predates and the parser returns what the API accepts. The deploy
 # role may update any of this project's functions, so CI does this too.

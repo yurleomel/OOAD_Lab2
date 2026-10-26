@@ -1,0 +1,10 @@
+# The peach-prod workspace's working directory is infra/, so a run started from
+# a laptop uploads the whole repository root. Only infra/ goes up - and never
+# .env, whatever the rules above it say (the last matching rule wins).
+*
+!infra/
+!infra/**
+infra/.terraform/
+infra/bootstrap/
+.env
+.env.*

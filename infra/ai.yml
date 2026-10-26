@@ -80,6 +80,8 @@ Resources:
 
   ParserRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -110,8 +112,8 @@ Resources:
 
   ParserLogGroup:
     Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub "/aws/lambda/${ProjectName}-agenda-parser"
       RetentionInDays: !Ref LogRetentionDays
@@ -124,6 +126,8 @@ Resources:
   # checks are the same code the API runs.
   ParserFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub "${ProjectName}-agenda-parser"
       Description: Pasted text in, a suggested agenda out. Writes nothing.
@@ -155,6 +159,8 @@ Resources:
   # 401 to anything else, because every call costs money.
   ParserUrl:
     Type: AWS::Lambda::Url
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TargetFunctionArn: !Ref ParserFunction
       AuthType: NONE
@@ -168,6 +174,8 @@ Resources:
   # InvokeFunction limited to calls that came through the URL.
   ParserUrlPermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref ParserFunction
       Action: lambda:InvokeFunctionUrl
@@ -176,6 +184,8 @@ Resources:
 
   ParserUrlInvokePermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref ParserFunction
       Action: lambda:InvokeFunction
@@ -188,6 +198,8 @@ Resources:
   # costs the same money.
   MonthlyBudget:
     Type: AWS::Budgets::Budget
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Condition: HasBudgetEmail
     Properties:
       Budget:

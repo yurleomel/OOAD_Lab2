@@ -40,6 +40,8 @@ Conditions:
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub "${ProjectName}-users"
       # Managed login (the v2 hosted page) needs Essentials; the first 10,000
@@ -79,6 +81,8 @@ Resources:
 
   GoogleProvider:
     Type: AWS::Cognito::UserPoolIdentityProvider
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Condition: HasGoogle
     Properties:
       UserPoolId: !Ref UserPool
@@ -97,6 +101,8 @@ Resources:
   # ID tokens issued to this client (the `aud` claim).
   WebClient:
     Type: AWS::Cognito::UserPoolClient
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolId: !Ref UserPool
       ClientName: !Sub "${ProjectName}-web"
@@ -127,6 +133,8 @@ Resources:
   # <project>-<account id> is unique across AWS without anyone choosing a name.
   HostedDomain:
     Type: AWS::Cognito::UserPoolDomain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolId: !Ref UserPool
       Domain: !Sub "${ProjectName}-${AWS::AccountId}"
@@ -136,6 +144,8 @@ Resources:
   # Cognito's default one is enough.
   LoginBranding:
     Type: AWS::Cognito::ManagedLoginBranding
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolId: !Ref UserPool
       ClientId: !Ref WebClient

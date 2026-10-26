@@ -101,6 +101,8 @@ Resources:
   # subnets' route tables. The only thing the builder reaches besides the database.
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VpcEndpointType: Gateway
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
@@ -111,6 +113,8 @@ Resources:
 
   ReportRequestsDlq:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       QueueName: !Sub "${ProjectName}-report-requests-dlq"
       MessageRetentionPeriod: 1209600 # 14 days, the most SQS keeps anything
@@ -120,6 +124,8 @@ Resources:
 
   ReportRequests:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       QueueName: !Sub "${ProjectName}-report-requests"
       # Six times the builder's 60 s timeout. Shorter, and a message becomes
@@ -137,6 +143,8 @@ Resources:
 
   SchedulerRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -161,6 +169,8 @@ Resources:
 
   WeeklySchedule:
     Type: AWS::Scheduler::Schedule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Name: !Sub "${ProjectName}-weekly-report"
       Description: Asks for last week's report every Monday morning.
@@ -181,6 +191,8 @@ Resources:
 
   BuilderRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -216,8 +228,8 @@ Resources:
 
   BuilderLogGroup:
     Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub "/aws/lambda/${ProjectName}-report-builder"
       RetentionInDays: !Ref LogRetentionDays
@@ -227,6 +239,8 @@ Resources:
 
   BuilderFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub "${ProjectName}-report-builder"
       Description: Builds reports/<week>.csv from the database.
@@ -259,6 +273,8 @@ Resources:
   # One message per invocation: a failure retries one report, not a batch.
   BuilderQueueMapping:
     Type: AWS::Lambda::EventSourceMapping
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref BuilderFunction
       EventSourceArn: !GetAtt ReportRequests.Arn
@@ -268,6 +284,8 @@ Resources:
 
   MailerRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -300,8 +318,8 @@ Resources:
 
   MailerLogGroup:
     Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub "/aws/lambda/${ProjectName}-report-mailer"
       RetentionInDays: !Ref LogRetentionDays
@@ -313,6 +331,8 @@ Resources:
   # needs only the standard library and boto3, so it is tested with the rest.
   MailerFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub "${ProjectName}-report-mailer"
       Description: Emails each new report through SES.
@@ -340,6 +360,8 @@ Resources:
 
   MailerInvokePermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref MailerFunction
       Action: lambda:InvokeFunction
@@ -355,10 +377,10 @@ Resources:
 
   ReportsBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     DependsOn: MailerInvokePermission
     # destroy-reports.sh empties it first; a bucket with objects cannot go.
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub "${ProjectName}-reports-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
@@ -399,6 +421,8 @@ Resources:
   # Easy DKIM: three CNAMEs at the DNS provider, then Verified in minutes.
   MailIdentity:
     Type: AWS::SES::EmailIdentity
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Condition: HasMailDomain
     Properties:
       EmailIdentity: !Ref MailDomain

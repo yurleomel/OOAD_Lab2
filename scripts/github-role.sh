@@ -122,7 +122,7 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     fi
   done
   [[ -n "${COGNITO_CLIENT_ID:-}" ]] \
-    || warn "COGNITO_* not in .env - run make deploy-cognito, then this again, or the site cannot build"
+    || warn "COGNITO_* not in .env - run make infra-env, then this again, or the site cannot build"
   echo
   echo "  Done. Every push to main now runs .github/workflows/deploy.yml."
 else

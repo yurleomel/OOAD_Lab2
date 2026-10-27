@@ -68,7 +68,7 @@ API_URL="${API_URL%/}"
 
 log "building against ${API_URL}"
 
-# The agenda parser (make deploy-ai). Without it the build simply has no
+# The agenda parser (make infra-env). Without it the build simply has no
 # "Paste an agenda" box; typing an agenda by hand still works.
 PARSER_URL="${PARSER_URL:-}"
 PARSER_URL="${PARSER_URL%/}"
@@ -76,12 +76,12 @@ if [[ -n "${PARSER_URL}" ]]; then
   [[ "${PARSER_URL}" == https://* ]] || die "PARSER_URL must be https://"
   log "agenda parser at ${PARSER_URL}"
 else
-  warn "PARSER_URL is not set - building without Paste an agenda (make deploy-ai)"
+  warn "PARSER_URL is not set - building without Paste an agenda (make infra-env)"
 fi
 
 # The Cognito ids are compiled in too; without them nobody could sign in.
 [[ -n "${COGNITO_CLIENT_ID:-}" && -n "${COGNITO_DOMAIN:-}" && -n "${COGNITO_USER_POOL_ID:-}" ]] \
-  || die "COGNITO_CLIENT_ID / COGNITO_DOMAIN / COGNITO_USER_POOL_ID are not set in .env - run make deploy-cognito first"
+  || die "COGNITO_CLIENT_ID / COGNITO_DOMAIN / COGNITO_USER_POOL_ID are not set in .env - run make infra-env first"
 
 # The function URL is always HTTPS; plain HTTP here means a hand-edited .env.
 [[ "${API_URL}" == https://* ]] \
@@ -173,8 +173,8 @@ echo "  api        ${API_URL}"
 echo "  bucket     s3://${BUCKET}"
 echo
 
-echo "If this was the first frontend deploy, run make deploy-cognito again so"
-echo "Google sign-in may redirect back to ${SITE_URL}."
+echo "If this was the first frontend deploy, start a run of the peach-prod workspace"
+echo "in HCP Terraform: it reads this stack and lets sign-in redirect back to ${SITE_URL}."
 echo
 echo "Now allow the site's origin through CORS:"
 echo

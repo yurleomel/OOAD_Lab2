@@ -1,4 +1,4 @@
-"""AWS Lambda entry point of the report mailer (infra/reports.yaml).
+"""AWS Lambda entry point of the report mailer (infra/reports.tf).
 
 S3 invokes it for every ``reports/*.csv`` that is created. It downloads the
 file and emails it as an attachment through SES. The builder does not know it

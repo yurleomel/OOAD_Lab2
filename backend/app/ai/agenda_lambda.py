@@ -1,4 +1,4 @@
-"""AWS Lambda entry point of the agenda parser (infra/ai.yml), behind its own function URL.
+"""AWS Lambda entry point of the agenda parser (infra/ai.tf), behind its own function URL.
 
 ``POST {"text": ..., "today": "2026-10-19", "tz": "Europe/Kyiv"}`` with a Cognito
 ID token answers ``{"agenda": ..., "model": ..., "prompt_version": ...}``. The
@@ -42,7 +42,7 @@ class ParseRequest(BaseModel):
 
 
 def _reply(status: int, body: dict[str, Any]) -> dict[str, Any]:
-    # CORS headers are added by the function URL itself (infra/ai.yml).
+    # CORS headers are added by the function URL itself (infra/ai.tf).
     return {
         "statusCode": status,
         "headers": {"content-type": "application/json"},

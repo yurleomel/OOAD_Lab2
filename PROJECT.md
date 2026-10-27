@@ -66,29 +66,32 @@ Peach/
 │   ├── ci.yml                    # ★ lint + tests on every PR and push to main (replaces lint.yml)
 │   └── deploy.yml                # ★ on push to main: checks -> backend -> frontend (replaces deploy-backend.yml)
 │
-├── infra/                        # CloudFormation, one template per stack
-│   ├── cognito.yaml              # ★ user pool, app client, hosted domain, optional Google IdP
+├── .terraformignore              # ★ what a CLI run uploads to HCP Terraform: infra/ only, never .env
+│
+├── infra/                        # ★ Terraform (Lab 7) for Labs 4-6; CloudFormation for the rest
+│   ├── versions.tf               # ★ cloud block (HCP org ooad-yurleomel, workspace peach-prod), providers
+│   ├── variables.tf              # ★ every input; the secret ones are sensitive workspace variables
+│   ├── terraform.tfvars          # ★ non-secret values only
+│   ├── stacks.tf                 # ★ reads the CloudFormation stacks that stay (backend, frontend)
+│   ├── auth.tf                   # ★ user pool, app client, managed login, Google IdP (was cognito.yaml)
+│   ├── reports.tf                # ★ weekly report: schedule, SQS + DLQ, builder, mailer, bucket, SES (was reports.yaml)
+│   ├── ai.tf                     # ★ agenda parser: function + URL outside the VPC, Bedrock role, $5 budget (was ai.yml)
+│   ├── outputs.tf                # ★ what make infra-env and report.sh read
+│   ├── bootstrap/main.tf         # ★ HCP's OIDC provider + role, the workspace; local state, applied once
 │   ├── backend.yaml              # Lambda + function URL + RDS PostgreSQL (db.t4g.micro)
 │   ├── api-edge.yaml             # ★ CloudFront in front of the function URL, for api.<domain>
 │   ├── frontend.yaml             # private S3 bucket + CloudFront (+ app.<domain>)
-│   ├── reports.yaml              # ★ weekly report: schedule, SQS + DLQ, builder, mailer, bucket, SES
-│   ├── ai.yml                    # ★ agenda parser: function + URL outside the VPC, Bedrock role, $5 budget
 │   └── github-oidc.yaml          # the role GitHub Actions assumes (extended: S3 + CloudFront)
 │
 ├── scripts/                      # what the Makefile runs; CI runs the same scripts
-│   ├── deploy-cognito.sh         # ★ deploy cognito.yaml, write COGNITO_* to .env
-│   ├── destroy-cognito.sh        # ★ delete the pool and every account in it
+│   ├── infra-env.sh              # ★ Terraform outputs -> COGNITO_* and PARSER_URL in .env (+ repo variable)
 │   ├── deploy-backend.sh         # build -> ECR -> CloudFormation -> migrate -> BACKEND_URL
 │   ├── destroy-backend.sh
 │   ├── domain-backend.sh         # ★ ACM cert + api-edge stack for api.<domain>
 │   ├── deploy-frontend.sh        # static export -> S3 -> CloudFront invalidation
 │   ├── domain-frontend.sh        # ACM cert + app.<domain> on the frontend distribution
 │   ├── destroy-frontend.sh
-│   ├── deploy-reports.sh         # ★ reports.yaml, wired to the backend stack; prints SES DKIM records
-│   ├── destroy-reports.sh        # ★ empty the reports bucket, delete the stack
 │   ├── report.sh                 # ★ now [WEEK] / ls / logs / status for the deployed report
-│   ├── deploy-ai.sh              # ★ ai.yml, wired to the backend; writes PARSER_URL
-│   ├── destroy-ai.sh             # ★ delete the parser stack and the budget
 │   ├── llm.sh                    # ★ make llm-hello / make parse: Bedrock from the laptop
 │   └── github-role.sh            # create the OIDC role, set repository variables
 │
@@ -193,16 +196,20 @@ commit meant to be amended.
 | `INTERNAL_API_URL` | frontend (server) | `http://backend:8000` | `.env` |
 | `AWS_REGION`, `PROJECT_NAME` | scripts | `us-east-1`, `peach` | `.env` |
 | `AWS_PROFILE` | scripts | an IAM user's CLI profile | `aws configure` |
-| `COGNITO_REGION/USER_POOL_ID/CLIENT_ID/DOMAIN/GOOGLE_ENABLED` | backend, frontend | — | `make deploy-cognito` |
-| `GOOGLE_CLIENT_ID/SECRET` | deploy-cognito | blank = Google off | `.env`, by hand |
+| `COGNITO_REGION/USER_POOL_ID/CLIENT_ID/DOMAIN/GOOGLE_ENABLED` | backend, frontend | — | `make infra-env` (Terraform outputs) |
 | `BACKEND_URL` | deploy-frontend | — | `make deploy-backend` / `make domain-backend` |
 | `API_CORS_ORIGINS` | deploy-backend | `https://app.<domain>` | `.env`, by hand |
 | `DOMAIN_NAME` | domain-frontend | `app.<domain>` | `make domain` |
 | `API_DOMAIN_NAME` | ★ domain-backend, deploy-backend | `api.<domain>` | `make domain-backend` |
-| `PARSER_API`, `PARSER_MODEL` ★ | parser, deploy-ai, llm.sh | `converse`, `us.anthropic.claude-haiku-4-5-20251001-v1:0` | `.env` or the command line; a plain `make deploy-ai` resets them |
-| `BEDROCK_REGION` ★ | parser | `us-east-1` | the stack |
-| `BUDGET_EMAIL` ★ | deploy-ai | blank = the first `REPORT_RECIPIENTS` | `.env`, by hand |
-| `PARSER_URL` ★ | deploy-frontend (`NEXT_PUBLIC_PARSER_URL`) | blank = no paste box | `make deploy-ai` (and the repository variable) |
+| `PARSER_API`, `PARSER_MODEL` ★ | parser, llm.sh | `converse`, `us.anthropic.claude-haiku-4-5-20251001-v1:0` | `.env` for `make parse`; on AWS the Terraform variables `parser_api`, `parser_model` |
+| `BEDROCK_REGION` ★ | parser | `us-east-1` | Terraform (`infra/ai.tf`) |
+| `PARSER_URL` ★ | deploy-frontend (`NEXT_PUBLIC_PARSER_URL`) | blank = no paste box | `make infra-env` (and the repository variable) |
+
+The infrastructure of Labs 4-6 takes its inputs as Terraform variables (`infra/variables.tf`), not
+from `.env`: the non-secret ones in `infra/terraform.tfvars` (the Google client id, the mail
+domain, the schedule, the model), the secret ones as sensitive variables in the HCP Terraform
+workspace `peach-prod` (`google_client_secret`, `report_sender_address`, `report_recipients`,
+`budget_email`). They never reach Git; they do reach the state (§12, Terraform).
 
 The browser and the frontend server use different API URLs on purpose: the browser resolves
 `localhost`, a server component inside the Compose network resolves the `backend` service name.
@@ -218,7 +225,7 @@ docker compose up --build
 That is the only command a new developer runs; Docker Desktop is the only prerequisite. Every
 variable has a default, so no `.env` is needed, and with no Cognito pool configured the app signs
 in locally (§9): any email, no password, no AWS. `cp .env.example .env` is for overriding ports or,
-later, for `make deploy-cognito` to write the pool ids into.
+later, for `make infra-env` to write the pool ids into.
 
 | Service | Built from | Host port → container | Depends on | Ready when |
 |---|---|---|---|---|
@@ -362,7 +369,7 @@ Errors are `{"error": <code>, "message": <text>}`. It writes nothing: the agenda
 
 ## 9. Authentication ★
 
-**Cognito** (`infra/cognito.yaml`, stack `<project>-cognito`):
+**Cognito** (`infra/auth.tf`, Terraform; until Lab 7 the stack `<project>-cognito`):
 
 - user pool — email is the username, email verified by code, password ≥ 8 chars with a number;
   standard attribute `name` is required at sign-up;
@@ -371,7 +378,8 @@ Errors are `{"error": <code>, "message": <text>}`. It writes nothing: the agenda
   `http://localhost:3000/auth/callback` and `https://app.<domain>/auth/callback` (plus the
   `*.cloudfront.net` URL once it exists);
 - hosted domain `<project>-<account id>.auth.us-east-1.amazoncognito.com` — used only by Google;
-- Google identity provider only when `GOOGLE_CLIENT_ID` is set; off by default.
+- Google identity provider only when the Terraform variable `google_client_id` is set (its secret
+  is a sensitive workspace variable); off by default.
 
 **Backend** (`app/auth.py`):
 
@@ -405,7 +413,7 @@ Errors are `{"error": <code>, "message": <text>}`. It writes nothing: the agenda
   `COGNITO_CLIENT_ID`; tokens last 12 hours and are not refreshed;
 - three guards keep it off AWS: it needs `APP_ENV=development` (the Lambda stack runs
   `production`), no pool configured, and no `AWS_LAMBDA_FUNCTION_NAME`; and `deploy-frontend.sh`
-  refuses to build without the pool ids. Once `make deploy-cognito` has run, local sign-in turns
+  refuses to build without the pool ids. Once `make infra-env` has written the pool ids, local sign-in turns
   itself off and local development uses the real pool.
 
 `AuthGate` is a convenience — the static export has no server to refuse a page; the real
@@ -482,8 +490,10 @@ per request — committed on success, rolled back on error.
 
 ## 12. AWS
 
-Everything in **us-east-1**, every resource tagged `PROJECT_NAME=peach`. Created from the
-`Makefile` with an IAM user's CLI profile (root user: MFA on, never used for this).
+Everything in **us-east-1**, every resource tagged `PROJECT_NAME=peach`. The application's stacks
+are CloudFormation, created from the `Makefile` with an IAM user's CLI profile (root user: MFA on,
+never used for this); Cognito, the weekly report and the agenda parser are Terraform, applied by
+HCP Terraform (★ Lab 7, below).
 
 ```
 browser ─► app.<domain> ─► CloudFront ─► private S3 bucket          (frontend)
@@ -494,13 +504,14 @@ browser ─► Cognito (sign-in, token refresh)
 
 | Stack | Template | Contains | Created by |
 |---|---|---|---|
-| `peach-cognito` ★ | `cognito.yaml` | user pool, app client, hosted domain, Google IdP (optional) | `make deploy-cognito` |
 | `peach-backend` | `backend.yaml` | Lambda + function URL, RDS PostgreSQL `db.t4g.micro` (20 GiB), security groups, DB secret, logs | `make deploy-backend` |
 | `peach-api-edge` ★ | `api-edge.yaml` | CloudFront distribution in front of the function URL, `api.<domain>` alias | `make domain-backend` |
 | `peach-frontend` | `frontend.yaml` | private bucket, origin access control, clean-URL rewrite function, distribution, `app.<domain>` alias | `make deploy-frontend`, `make domain` |
-| `peach-reports` ★ | `reports.yaml` | weekly report: schedule, SQS queue + DLQ, builder and mailer functions, reports bucket, S3 gateway endpoint, SES domain identity | `make deploy-reports` |
 | `peach-github-oidc` | `github-oidc.yaml` | OIDC provider, deploy role | `make github-role` |
 | ECR repository | — | backend images, last 3 kept | `deploy-backend.sh` |
+| Terraform ★ | `auth.tf` | user pool, app client, managed login domain and branding, Google IdP (optional) | HCP Terraform, on merge |
+| Terraform ★ | `reports.tf` | weekly report: schedule, SQS queue + DLQ, builder and mailer functions, reports bucket, S3 gateway endpoint, SES domain identity | HCP Terraform, on merge |
+| Terraform ★ | `ai.tf` | agenda parser function + URL, its role, the `peach-monthly` budget | HCP Terraform, on merge |
 
 **Frontend.** S3 stores the files; CloudFront serves them from the edge, terminates HTTPS and is
 the only reader of the bucket (origin access control + bucket policy). Every deploy invalidates
@@ -568,22 +579,26 @@ make report-now ───────┴─► SQS report-requests ──(3 fail
   direct invocation and an SQS record carry the same payload; no week means the last complete
   one. It logs `report-builder triggered: trigger=<schedule|sqs|direct> via=… week=…` first.
   Timeout 60 s; the queue's visibility timeout is 360 s (six times that), `maxReceiveCount` 3.
-  `REPORTS_FAIL_WEEK` (stack parameter `FailWeek`) makes one week fail, for the dead-letter
-  exercise.
+  `REPORTS_FAIL_WEEK` (Terraform variable `report_fail_week`) makes one week fail, for the
+  dead-letter exercise.
 - **Mailer** (`app.reports.mailer.handler`, same image, no VPC): standard library and boto3 only,
   reading its two variables itself - importing the database code outside the VPC would be
   pointless. It only reads `reports/` (`s3:GetObject`); a function triggered by a prefix that
-  wrote to it would invoke itself forever. Sender `<SenderName> <reports@<MailDomain>>`,
-  recipients from `REPORT_RECIPIENTS`; with either empty it logs and sends nothing.
-- **The bucket** is named, not generated (`<project>-reports-<account>`), so the invoke
-  permission's `SourceArn` can be built without `!GetAtt` and the bucket can `DependsOn` it -
-  otherwise CloudFormation reports a circular dependency. Private, reports expire after 90 days.
-- **SES.** `AWS::SES::EmailIdentity` for `mylanora.world` prints three DKIM CNAMEs, added at
-  Namecheap by hand like the certificate records. While the account is in the SES sandbox it
-  delivers only to verified addresses; `deploy-reports.sh` asks SES to verify each recipient.
-- **Image.** Both functions run whatever image the API runs: `deploy-reports.sh` reads it from the
-  backend function, and `deploy-backend.sh` (CI included) moves both functions to each new image,
-  so the builder never queries a schema it predates.
+  wrote to it would invoke itself forever. Sender `<report_sender_name> <report_sender_address>`
+  (default `reports@<mail_domain>`), recipients from `REPORT_RECIPIENTS`; with either empty it logs and sends nothing.
+- **The bucket** is named, not generated (`<project>-reports-<account>`). In CloudFormation the
+  name broke a circular dependency (bucket -> notification -> permission -> bucket); in Terraform
+  the bucket, the invoke permission and `aws_s3_bucket_notification` are three resources, so the
+  name only keeps one bucket per account. Private, reports expire after 90 days.
+- **SES.** `aws_sesv2_email_identity` for `mylanora.world`; its three DKIM CNAMEs (output
+  `mail_dkim_records`) are added at Namecheap by hand like the certificate records. While the
+  account is in the SES sandbox it delivers only to verified addresses, and each address is
+  verified once by hand (`aws sesv2 create-email-identity --email-identity <address>`), outside
+  Terraform.
+- **Image.** Both functions run whatever image the API runs: Terraform reads it from the backend
+  function when it creates them and ignores `image_uri` after that; `deploy-backend.sh` (CI
+  included) moves both functions to each new image, so the builder never queries a schema it
+  predates.
 
 **Agenda parser** ★ (Lab 6) — pasted text in, a suggested agenda out.
 
@@ -611,7 +626,8 @@ browser ─(1 parse: text, today, tz, ID token)─► Lambda agenda-parser (API 
   Claude 5.x, no forced tool). **This account** answers "not available for this account" for every
   Claude 5.x model on both APIs, Marketplace agreements accepted; Claude 4.x works once the
   Anthropic use-case form is on file. So it runs `converse` + Claude Haiku 4.5. The lab's Opus 5.5 is
-  `PARSER_API=messages PARSER_MODEL=anthropic.claude-opus-5-5 make deploy-ai`, no code change.
+  `parser_api = "messages"` and `parser_model = "anthropic.claude-opus-5-5"` in
+  `infra/terraform.tfvars`, merged; no code change.
 - **The handler** (`app.ai.agenda_lambda.handler`, the API image with another `Command`): Cognito
   ID token checked against the pool's JWKS (`app/id_tokens.py`), `413` before the model,
   throttling → `429`. Timeout 30 s, 512 MB. Logs `{"event": "agenda_parsed" | "agenda_parse_failed",
@@ -627,9 +643,12 @@ browser ─(1 parse: text, today, tz, ID token)─► Lambda agenda-parser (API 
 - **Laptop**: `make llm-hello` (the first call), `make parse TEXT="…"` (the parser alone, prints the
   JSON and its usage), both through the backend dev container with the CLI's credentials.
 
-**Teardown**, in this order: `make destroy-ai` ★, `make destroy-reports` ★, `make destroy-frontend`, `make destroy-backend-domain` ★,
-`make destroy-backend`, `make destroy-cognito`, then delete the certificates and the
-`peach-github-oidc` stack. On the AWS Free plan all of it is covered; on a paid plan after the
+**Teardown**, in this order: remove the two `prevent_destroy` guards (user pool, reports bucket)
+in a pull request, empty the reports bucket and queue a destroy run in the `peach-prod`
+workspace (Settings → Destruction and Deletion) ★ - Terraform reads the backend stack, so it goes
+first; then `make destroy-frontend`, `make destroy-backend-domain` ★, `make destroy-backend`;
+then delete the certificates, the `peach-github-oidc` stack and the bootstrap
+(`terraform -chdir=infra/bootstrap destroy`) ★. On the AWS Free plan all of it is covered; on a paid plan after the
 free allowance, the micro database is the one thing billing by the hour (~$12/month), plus one
 Secrets Manager secret ($0.40/month).
 
@@ -642,22 +661,23 @@ for. A single `db.t4g.micro` instance is inside the Free plan and keeps everythi
 ## 13. Makefile — the deploy contract
 
 CI has no recipe of its own: it runs these targets, so a failed deploy is debugged locally.
+There is no `infra-apply` ★: Terraform applies only in HCP Terraform, after a merge (§14).
 
 | Target | Does |
 |---|---|
 | `up`, `down`, `clean`, `logs`, `ps` | Compose lifecycle (`clean` wipes the database volume) |
 | `migrate`, `revision m="..."` | Alembic inside the running backend |
 | `test`, `lint`, `fmt` | both sides, inside the containers |
-| `deploy-cognito` ★, `destroy-cognito` ★ | the user pool |
 | `deploy-backend`, `destroy-backend`, `migrate-backend`, `logs-backend` | the API stack |
 | `domain-backend DOMAIN=api.<domain>` ★, `destroy-backend-domain` ★ | the API's custom domain |
 | `deploy-frontend`, `destroy-frontend` | the site |
 | `cert DOMAIN=…`, `domain DOMAIN=app.<domain>` | the site's certificate and custom domain |
 | `github-role` | the OIDC role and repository variables |
-| `deploy-reports` ★, `destroy-reports` ★ | the weekly report stack (`REPORTS_MAIL_DOMAIN`, `REPORT_RECIPIENTS`, `REPORTS_SCHEDULE`, `REPORTS_FAIL_WEEK` from `.env` or the command line) |
 | `report-now WEEK=2026-W41` ★, `report-ls` ★, `report-logs` ★, `report-status` ★ | queue a report on demand (no `WEEK`: last week), list the bucket, the trigger log lines, queue and DLQ depth |
 | `report-local WEEK=…` ★ | print a report built from the Compose database |
-| `deploy-ai` ★, `destroy-ai` ★ | the agenda parser stack and the budget (`PARSER_API`, `PARSER_MODEL`, `BUDGET_EMAIL`) |
+| `infra-init` ★, `infra-plan` ★ | connect `infra/` to the HCP workspace (after `terraform login`); plan in HCP Terraform against the real cloud, changes nothing |
+| `infra-check` ★ | `terraform fmt -check` and `validate` for `infra/` and `infra/bootstrap/`, offline (CI runs it) |
+| `infra-env` ★ | the Terraform outputs -> `COGNITO_*` and `PARSER_URL` in `.env`, and the `PARSER_URL` repository variable |
 | `llm-hello` ★, `parse TEXT="…"` ★, `parse-logs` ★ | Bedrock from the laptop; the parser from the laptop; the parser's log lines |
 
 ---
@@ -673,6 +693,7 @@ CI has no recipe of its own: it runs these targets, so a failed deploy is debugg
 | backend-test | `pytest` against a `postgres:17-alpine` service container |
 | frontend-lint | `eslint`, `prettier --check`, `tsc --noEmit` |
 | frontend-test | `vitest run` |
+| terraform ★ | `make infra-check` (Terraform 1.17.0) |
 
 **`deploy.yml`** — on every push to `main`, and by hand (`workflow_dispatch`):
 
@@ -702,9 +723,27 @@ name, cannot reach the role. `make github-role` asks GitHub which form the repos
 **Repository variables** (not secrets — useless without a token minted by this repository):
 `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, and for the frontend build `COGNITO_REGION`,
 `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN`, `COGNITO_GOOGLE_ENABLED` — `make github-role` sets them all
-from `.env`, so run it after `make deploy-cognito`. Optional: `PROJECT_NAME`, and `BACKEND_URL`
+from `.env`, so run it after `make infra-env`. Optional: `PROJECT_NAME`, and `BACKEND_URL`
 once the API has its own domain; without it the frontend job reads the backend stack's `ApiUrl`.
 CI has no `.env`; parameters it leaves empty keep the stack's current values.
+
+**HCP Terraform** ★ (Lab 7) — the second road. Workspace `peach-prod` in the organization
+`ooad-yurleomel`, remote execution, working directory `infra`, connected to this repository through
+the HCP Terraform GitHub App:
+
+- a pull request that touches `infra/*.tf`, `infra/*.tfvars` or the lock file gets a plan as a
+  check; a merge to `main` plans and applies (auto-apply);
+- each run trades an OIDC token (`aud = aws.workload.identity`,
+  `sub = organization:ooad-yurleomel:project:*:workspace:peach-prod:run_phase:*`) for the role
+  `hcp-terraform-peach-prod`; HCP Terraform holds no AWS keys;
+- `make infra-plan` runs the same plan from a laptop, uploading only `infra/` (`.terraformignore`);
+  a laptop cannot apply to a workspace that follows a repository.
+
+GitHub Actions ships the application (the image, the backend stack, the site, and the image of
+the three functions that run it); Terraform owns everything else about those functions and
+ignores `image_uri`. A change that needs both goes infrastructure first (ADR 0007). The role, its
+OIDC provider and the workspace are `infra/bootstrap/`, applied once by the owner with a local
+state.
 
 ---
 
@@ -753,7 +792,7 @@ equivalents of the report's pieces; they are compared in the course, not deploye
    tests green.
 5. `docker compose up --build`; sign in locally, add a task, reload — it is still there.
 6. `ci.yml`; push one commit that fails the linter on purpose, see it red, fix it.
-7. `make deploy-cognito`, `make deploy-backend`, `make deploy-frontend`; `make domain` and
-   `make domain-backend`.
+7. `make deploy-backend`, `make deploy-frontend`; `make domain` and `make domain-backend`; then
+   `infra/bootstrap` once, and the `peach-prod` workspace applies `infra/` (§14).
 8. `make github-role`, `deploy.yml`; a push to `main` redeploys both.
 9. Tear down what is no longer needed (§12).

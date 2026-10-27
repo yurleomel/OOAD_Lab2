@@ -26,7 +26,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # NEXT_PUBLIC_* is inlined at build time, so it has to be present here too.
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-# Compiled into the bundle, like the API URL. Written by make deploy-cognito.
+# Compiled into the bundle, like the API URL. Written by make infra-env.
 ARG NEXT_PUBLIC_COGNITO_REGION=us-east-1
 ARG NEXT_PUBLIC_COGNITO_USER_POOL_ID=
 ARG NEXT_PUBLIC_COGNITO_CLIENT_ID=

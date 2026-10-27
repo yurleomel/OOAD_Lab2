@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-cognito destroy-cognito deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role deploy-reports destroy-reports report-now report-ls report-logs report-status report-local llm-hello parse deploy-ai destroy-ai parse-logs
+.PHONY: help up down build logs ps migrate revision test test-backend test-frontend lint fmt clean shell-backend shell-db deploy-backend destroy-backend logs-backend migrate-backend cert domain domain-backend destroy-backend-domain deploy-frontend destroy-frontend github-role report-now report-ls report-logs report-status report-local llm-hello parse parse-logs infra-init infra-plan infra-check infra-env
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -51,11 +51,24 @@ shell-backend: ## Shell into the backend container
 shell-db: ## psql into the database
 	$(COMPOSE) exec db psql -U $${POSTGRES_USER:-peach} -d $${POSTGRES_DB:-peach}
 
-deploy-cognito: ## Create/update the Cognito user pool; writes COGNITO_* to .env and prints them
-	./scripts/deploy-cognito.sh
+# Cognito, the weekly report and the agenda parser are Terraform in infra/. Plans
+# and applies run in HCP Terraform (workspace peach-prod): a pull request gets a
+# plan, a merge to main applies it. Nothing here applies.
+infra-init: ## Connect infra/ to its HCP Terraform workspace (after terraform login)
+	terraform -chdir=infra init
 
-destroy-cognito: ## Delete the Cognito stack, every account in the pool included
-	./scripts/destroy-cognito.sh
+infra-plan: ## Plan infra/ in HCP Terraform against the real cloud; changes nothing
+	terraform -chdir=infra plan
+
+infra-check: ## terraform fmt -check and validate, offline (what CI runs)
+	terraform fmt -check -recursive infra
+	terraform -chdir=infra init -backend=false -input=false >/dev/null
+	terraform -chdir=infra validate
+	terraform -chdir=infra/bootstrap init -backend=false -input=false >/dev/null
+	terraform -chdir=infra/bootstrap validate
+
+infra-env: ## Write COGNITO_* and PARSER_URL from the Terraform outputs to .env
+	./scripts/infra-env.sh
 
 deploy-backend: ## Build + push the image, roll the Lambda (function URL + RDS PostgreSQL), migrate, write BACKEND_URL to .env
 	./scripts/deploy-backend.sh
@@ -91,12 +104,6 @@ destroy-frontend: ## Delete the frontend stack (bucket + distribution)
 github-role: ## Create the IAM role GitHub Actions assumes to deploy (OIDC, no keys)
 	./scripts/github-role.sh
 
-deploy-reports: ## Weekly report: builder, mailer, bucket, queue + DLQ, Monday schedule, SES (after deploy-backend)
-	./scripts/deploy-reports.sh
-
-destroy-reports: ## Delete the weekly report stack, every report in the bucket included
-	./scripts/destroy-reports.sh
-
 report-now: ## Queue a report on demand: make report-now WEEK=2026-W41 (no WEEK = last week)
 	./scripts/report.sh now $(WEEK)
 
@@ -117,12 +124,6 @@ llm-hello: ## The first Bedrock call from the laptop: answer, stop_reason, usage
 
 parse: ## Run the agenda parser from the laptop: make parse TEXT="Пн 10:00, синк ..."
 	./scripts/llm.sh parse
-
-deploy-ai: ## Agenda parser: function + URL, Bedrock role, $$5 budget alarm (after deploy-backend); writes PARSER_URL
-	./scripts/deploy-ai.sh
-
-destroy-ai: ## Delete the agenda parser stack and the budget
-	./scripts/destroy-ai.sh
 
 parse-logs: ## The parser's JSON log lines, last 24 h (SINCE_HOURS=…)
 	aws logs filter-log-events --log-group-name /aws/lambda/$${PROJECT_NAME:-peach}-agenda-parser \

@@ -28,3 +28,12 @@ out/
 
 # --- docker ---
 pgdata/
+
+# --- terraform ---
+# .terraform.lock.hcl is committed: it pins the provider versions.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log

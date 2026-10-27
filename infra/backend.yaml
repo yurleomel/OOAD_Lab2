@@ -113,7 +113,7 @@ Parameters:
     Type: String
     Default: ""
     Description: >-
-      From make deploy-cognito. Empty means no pool: every protected endpoint
+      From make infra-env. Empty means no pool: every protected endpoint
       then answers 503, never an open door.
 
   CognitoClientId:

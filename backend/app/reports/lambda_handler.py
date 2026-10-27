@@ -1,4 +1,4 @@
-"""AWS Lambda entry point of the report builder (infra/reports.yaml).
+"""AWS Lambda entry point of the report builder (infra/reports.tf).
 
 The API's image, started with this handler instead. It runs in the API's VPC
 and security group, reaches the database directly and S3 through the gateway

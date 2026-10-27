@@ -377,16 +377,42 @@ The generated project was checked end to end:
 
 ## 11. Deploying the backend to AWS
 
-Sign-in comes first: `make deploy-cognito` creates the user pool, app client and hosted domain
-(`infra/cognito.yaml`) and writes `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`,
-`COGNITO_DOMAIN` and `COGNITO_GOOGLE_ENABLED` to `.env`, printing them as well. Compose passes
-them to both services, `make deploy-backend` fetches the pool's signing keys and hands them to the
-Lambda (it has no internet route to fetch them), and `make deploy-frontend` compiles the ids in.
-Re-run it after the first `make deploy-frontend` so the site's URL is allowed as an OAuth
-redirect. For Google, create an OAuth client in Google Cloud with the redirect URI the deploy
-prints, set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in `.env`, re-run `make deploy-cognito`,
-then rebuild the frontend so the button appears. `make destroy-cognito` deletes the pool and
-every account in it.
+Sign-in comes first. The user pool, app client and hosted domain are Terraform
+(`infra/auth.tf`, see [Infrastructure as code](#infrastructure-as-code-terraform) below);
+`make infra-env` reads the outputs and writes `COGNITO_REGION`, `COGNITO_USER_POOL_ID`,
+`COGNITO_CLIENT_ID`, `COGNITO_DOMAIN` and `COGNITO_GOOGLE_ENABLED` to `.env`, printing them as
+well. Compose passes them to both services, `make deploy-backend` fetches the pool's signing keys
+and hands them to the Lambda (it has no internet route to fetch them), and `make deploy-frontend`
+compiles the ids in. Terraform reads the site's URL from the frontend stack, so after the first
+`make deploy-frontend` one more run of the workspace allows it as an OAuth redirect. For Google,
+create an OAuth client in Google Cloud with the redirect URI `make infra-env` prints, put its id in
+`infra/terraform.tfvars` and its secret in the workspace, and merge.
+
+### Infrastructure as code (Terraform)
+
+Cognito (Lab 4), the weekly report (Lab 5) and the agenda parser (Lab 6) are one Terraform root
+module in `infra/` (`auth.tf`, `reports.tf`, `ai.tf`). They were CloudFormation stacks until Lab 7;
+the resources were imported, not re-created ([ADR 0007](docs/adr/0007-terraform.md)). The network,
+database, API and site stay CloudFormation (`backend.yaml`, `frontend.yaml`), and Terraform reads
+their outputs with the `aws_cloudformation_stack` data source.
+
+The state lives in HCP Terraform, workspace `peach-prod` of the organization `ooad-yurleomel`,
+which also runs plan and apply with short-lived AWS credentials (OIDC, `infra/bootstrap/`). The
+workspace follows `main`: a pull request that touches `infra/*.tf` gets a plan as a check, and the
+merge applies it. Nothing applies from a laptop.
+
+```bash
+terraform login          # once: an HCP Terraform API token in ~/.terraform.d/
+make infra-init          # connect infra/ to the workspace
+make infra-plan          # a plan in HCP Terraform against the real cloud; changes nothing
+make infra-check         # fmt -check + validate, offline (CI runs the same)
+make infra-env           # COGNITO_* and PARSER_URL from the outputs into .env
+```
+
+Non-secret inputs are in `infra/terraform.tfvars`. The Google client secret, the report sender
+and recipients and the budget email are sensitive variables in the workspace, never in Git.
+`infra/bootstrap/` (the workspace, its variables and the AWS role its runs assume) is applied once
+from a laptop, with a local state.
 
 Everything lives in **us-east-1**, and every resource carries a `PROJECT_NAME` tag.
 

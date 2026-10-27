@@ -314,6 +314,10 @@ resource "aws_lambda_permission" "mailer_s3" {
 # apply would then try to delete a bucket full of reports.
 resource "aws_s3_bucket" "reports" {
   bucket = local.reports_bucket
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "reports" {

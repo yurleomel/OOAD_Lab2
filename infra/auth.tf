@@ -58,6 +58,11 @@ resource "aws_cognito_user_pool" "main" {
   }
 
   deletion_protection = "INACTIVE"
+
+  # A plan that would replace or delete the pool is an error, not a review item.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_cognito_identity_provider" "google" {

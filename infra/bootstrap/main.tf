@@ -6,9 +6,10 @@
 #   terraform -chdir=infra/bootstrap init
 #   terraform -chdir=infra/bootstrap apply
 #
-# Then `make infra-init` in infra/. Set github_repo once the HCP Terraform
-# GitHub App is installed on the repository, and apply again: pull requests
-# then get a plan as a check, and a merge to main applies.
+# Then `make infra-init` in infra/. github_repo needs the HCP Terraform GitHub
+# App installed on the repository (github.com/apps/terraform-cloud, only this
+# repository); with it, pull requests get a plan as a check and a merge to
+# main applies. Set it to "" to go back to CLI-driven runs.
 
 terraform {
   required_version = ">= 1.10"
@@ -51,8 +52,8 @@ variable "workspace_name" {
 
 variable "github_repo" {
   type        = string
-  default     = ""
-  description = "owner/name of the repository whose main branch the workspace follows. Empty: CLI-driven only."
+  default     = "yurleomel/OOAD_Lab2"
+  description = "owner/name of the repository whose default branch the workspace follows. Empty: CLI-driven only."
 }
 
 provider "aws" {
@@ -135,8 +136,8 @@ resource "tfe_workspace" "infra" {
   dynamic "vcs_repo" {
     for_each = var.github_repo != "" ? [var.github_repo] : []
     content {
+      # No branch: the repository's default one, main.
       identifier                 = vcs_repo.value
-      branch                     = "main"
       github_app_installation_id = data.tfe_github_app_installation.this[0].id
     }
   }

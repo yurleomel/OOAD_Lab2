@@ -8,8 +8,8 @@ the migration log, and the answers to Step 7 and the class questions.
 
 | Item | How |
 |---|---|
-| 1. Commit | the merged `lab7-terraform` pull request: `infra/versions.tf`, `variables.tf`, `stacks.tf`, `auth.tf`, `reports.tf`, `ai.tf`, `outputs.tf`, `terraform.tfvars`; `cognito.yaml`, `reports.yaml`, `ai.yml` and their deploy/destroy scripts deleted; `Makefile` (`infra-*`, no apply), `README.md` §11, ADR 0007 |
-| 2. Apply finished | the run of workspace `peach-prod` started by merging the small-change pull request (report log retention 7 → 14 days); the screenshot shows the trigger (the merge commit from GitHub) and **Apply finished** |
+| 1. Commit | [PR #12](https://github.com/yurleomel/OOAD_Lab2/pull/12), merged as `7006dcf`: `infra/versions.tf`, `variables.tf`, `stacks.tf`, `auth.tf`, `reports.tf`, `ai.tf`, `outputs.tf`, `terraform.tfvars`; `cognito.yaml`, `reports.yaml`, `ai.yml` and their deploy/destroy scripts deleted; `Makefile` (`infra-*`, no apply), `README.md` §11, ADR 0007 |
+| 2. Apply finished | run `run-5PM8AEjzcAoSdkVx`, started by merging [PR #13](https://github.com/yurleomel/OOAD_Lab2/pull/13) (report log retention 7 → 14 days): from GitHub, branch `main`, commit `96cda7b`, trigger "File change detected in tracked directory", execution mode Remote; **Apply finished: 0 added, 2 changed, 0 destroyed**. The pull request's check showed the same plan first (`run-4aaLg5hV1FZTSCLQ`, "0 to add, 2 to change, 0 to destroy") |
 | 3. No changes | `make infra-plan` right after the import apply, below |
 
 ## Migration log
@@ -105,7 +105,18 @@ old version, so the order of the two merges can never break production.
 
 ## Drift (Step 5)
 
-<!-- filled in after the exercise: the console change, the Plan only run, the revert -->
+1. By hand, outside Terraform: the parser's timeout 30 → 45 s
+   (`aws lambda update-function-configuration --function-name peach-agenda-parser --timeout 45`,
+   the same call the console makes).
+2. HCP Terraform, **New run → Plan only** (`run-E5GLgSuju7sd5sBX`): `0 to add, 1 to change,
+   0 to destroy`, `aws_lambda_function.parser`, `~ timeout: 45 → 30`. The plan is the code's
+   opinion: the refresh read 45 from AWS, the code says 30. (`make infra-plan` from the laptop
+   showed the same, `run-nY3pMMZrdTMqzF2s`.)
+3. **New run → Plan and apply** (`run-Er3zWbc7ozf4ncL9`): `0 added, 1 changed, 0 destroyed`; AWS
+   reads 30 s again, and the next plan says "No changes".
+
+Nothing announced the drift: it showed up only because a plan ran. With auto-apply, the next
+merge that touched `infra/` would have reverted it just the same, as one line among others.
 
 **If it had been a real 23:00 fix**, putting it back would undo the fix. The team should have
 done the fix as a pull request (with auto-apply it reaches AWS in minutes, and the plan is the

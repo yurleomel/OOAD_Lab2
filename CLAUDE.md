@@ -20,7 +20,7 @@ upstream repository and are being written here.
 | Lab 5 weekly report: `app/reports/` (report, builder, mailer), `items.completed_at` (0004), `infra/reports.tf` (until Lab 7 `reports.yaml` + `deploy-reports.sh`), `report.sh`, `make report-*`; submission notes and answers in `docs/lab5.md` | done (`pytest` 82 passed) and live: Monday schedule, `make report-now`, mail through SES; since Lab 7 owned by Terraform |
 | Lab 6 Paste an agenda: `app/ai/` (parser, Lambda handler, prices), agenda on tasks (`0005`), `infra/ai.tf` (until Lab 7 `ai.yml` + `deploy-ai.sh`; parser outside the VPC + $5 budget), `llm.sh`, `make llm-hello/parse/parse-logs`, the paste screen; ADR `docs/adr/0006-llm-agenda-parsing.md`, C4 `docs/architecture.md`, submission notes `docs/lab6.md` | done - `pytest` 124, vitest 72; `peach-ai` live (parser URL in `PARSER_URL`, $5 budget `peach-monthly`), prompt `agenda-v2`, Converse + Claude Haiku 4.5 (see gotcha); checked on app.mylanora.world: paste, pre-fill, correct, save |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
-| Lab 7 Terraform: `infra/*.tf` (Cognito, report, parser), `infra/bootstrap/` (HCP OIDC role + workspace), `.terraformignore`, `make infra-*`, `scripts/infra-env.sh`, CI job `terraform`; ADR `docs/adr/0007-terraform.md`, submission notes `docs/lab7.md` | in progress - the three stacks deleted with every resource retained (27), bootstrap applied (workspace `peach-prod`, role `hcp-terraform-peach-prod`); next: import apply in HCP, "No changes" plan, VCS connection, a PR applied by a merge, the drift exercise |
+| Lab 7 Terraform: `infra/*.tf` (Cognito, report, parser), `infra/bootstrap/` (HCP OIDC role + workspace), `.terraformignore`, `make infra-*`, `scripts/infra-env.sh`, CI job `terraform`; ADR `docs/adr/0007-terraform.md`, submission notes `docs/lab7.md` | done - 27 CloudFormation resources retained, stacks deleted, 39 imported (0 re-created), "No changes" after the import (PR #12, `7006dcf`); the workspace follows `main` through the HCP Terraform GitHub App (installed on this repository only): PR plan checks, auto-apply on merge - PR #13 (log retention 7 -> 14 days) applied by its merge; Step 5 drift found and reverted. Submission files in `submission/lab7/` (untracked) |
 
 ## Running
 
@@ -115,3 +115,9 @@ make infra-plan                     # remote plan in HCP Terraform (after terraf
   `username = "sub"`; SQS needs `max_message_size = 1048576` set explicitly; the schedule `input`
   must match the stored JSON byte for byte. Sensitivity-only "update in-place" lines on import
   ("The value is unchanged") are not changes.
+- Connecting the workspace to GitHub opens two pop-ups (OAuth, then the app install); Chrome
+  blocks the second because HCP opens it after an XHR. Install the app directly at
+  `github.com/apps/terraform-cloud/installations/new` (only this repository), then reconnect.
+- With the workspace following `main`, `make infra-plan` still works (a speculative, plan-only
+  run "triggered via CLI"); applies come only from merges or **New run** in the UI. A CLI plan once
+  hung on "Preparing the remote plan" for ten minutes; stopping it and running again took 90 s.

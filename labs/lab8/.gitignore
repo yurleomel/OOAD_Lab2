@@ -1,0 +1,6 @@
+# one day of the dataset, downloaded from S3 for the replay
+*.jsonl
+
+# the consumers' full logs go into the submission; summary.txt stays in Git
+streaming/output/*.log
+__pycache__/

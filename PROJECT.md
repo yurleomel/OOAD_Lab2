@@ -512,6 +512,7 @@ browser ─► Cognito (sign-in, token refresh)
 | Terraform ★ | `auth.tf` | user pool, app client, managed login domain and branding, Google IdP (optional) | HCP Terraform, on merge |
 | Terraform ★ | `reports.tf` | weekly report: schedule, SQS queue + DLQ, builder and mailer functions, reports bucket, S3 gateway endpoint, SES domain identity | HCP Terraform, on merge |
 | Terraform ★ | `ai.tf` | agenda parser function + URL, its role, the `peach-monthly` budget | HCP Terraform, on merge |
+| Terraform ★ | `lab8.tf`, `lab8/` | Lab 8 only, off by default (`lab8_stream_enabled`): Kinesis, Firehose, failure-check Lambda, SNS. Not part of the product | HCP Terraform, on merge |
 
 **Frontend.** S3 stores the files; CloudFront serves them from the edge, terminates HTTPS and is
 the only reader of the bucket (origin access control + bucket policy). Every deploy invalidates

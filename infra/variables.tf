@@ -130,3 +130,9 @@ variable "budget_limit_usd" {
   type    = number
   default = 5
 }
+
+variable "lab8_stream_enabled" {
+  type        = bool
+  default     = false
+  description = "Lab 8: the Kinesis pipeline, billed by the hour. On only while the lab runs."
+}

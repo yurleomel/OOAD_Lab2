@@ -1,0 +1,2 @@
+events,distinct_rows,distinct_without_dt,distinct_invoice_status_time,distinct_invoice_status,invoices,null_keys,dt_is_modified_date,dt_is_received_date,dt_is_created_date,first_created,last_created,last_received,invoice_times_with_two_statuses,received_before_modified
+3030197,3000000,3000000,3000000,3000000,1000000,0,3030197,3030109,3030148,2026-10-01T00:00:01Z,2026-10-30T23:59:58Z,2026-10-31T00:02:24Z,0,0

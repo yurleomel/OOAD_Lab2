@@ -1,0 +1,10 @@
+measure,value
+"payments, COUNT(*) on raw events",3030197
+row_number() = 1 with no DISTINCT: rows left,1000000
+failure % on raw events,2.01
+UAH turnover on raw events,733128678.76
+rank() = 1 with no DISTINCT: rows left,1009978
+"payments, COUNT(*) on the view",1000000
+UAH turnover on the view,726040513.31
+failure % on the view,6.02
+DISTINCT and row_number() on one level: rows left,3030197

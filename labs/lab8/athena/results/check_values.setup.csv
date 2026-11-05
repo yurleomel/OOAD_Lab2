@@ -1,0 +1,31 @@
+field,value,n
+ccy,980,2818936
+ccy,840,120739
+ccy,978,90522
+device,web,1010889
+device,ios,1009799
+device,android,1009509
+failureReason,,2969418
+failureReason,Таймаут 3-D Secure,12238
+failureReason,Перевищено ліміт,12192
+failureReason,Відмова банку-емітента,12146
+failureReason,Недостатньо коштів,12137
+failureReason,Невірний CVV,12066
+merchant,m-001 Кав'ярня mcc 5814,303661
+merchant,m-004 Доставка їжі mcc 5812,303457
+merchant,m-008 АЗС mcc 5541,303355
+merchant,m-006 Музичний сервіс mcc 5815,303034
+merchant,m-010 Квитки mcc 4112,302968
+merchant,m-003 Таксі mcc 4121,302954
+merchant,m-005 Онлайн-кінотеатр mcc 4899,302858
+merchant,m-002 Супермаркет mcc 5411,302845
+merchant,m-007 Аптека mcc 5912,302828
+merchant,m-009 Інтернет-магазин mcc 5732,302237
+paymentMethod,card,1667479
+paymentMethod,apple_pay,758691
+paymentMethod,google_pay,542979
+paymentMethod,qr,61048
+status,created,1010167
+status,processing,1010052
+status,success,949199
+status,failure,60779

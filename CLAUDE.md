@@ -21,6 +21,7 @@ upstream repository and are being written here.
 | Lab 6 Paste an agenda: `app/ai/` (parser, Lambda handler, prices), agenda on tasks (`0005`), `infra/ai.tf` (until Lab 7 `ai.yml` + `deploy-ai.sh`; parser outside the VPC + $5 budget), `llm.sh`, `make llm-hello/parse/parse-logs`, the paste screen; ADR `docs/adr/0006-llm-agenda-parsing.md`, C4 `docs/architecture.md`, submission notes `docs/lab6.md` | done - `pytest` 124, vitest 72; `peach-ai` live (parser URL in `PARSER_URL`, $5 budget `peach-monthly`), prompt `agenda-v2`, Converse + Claude Haiku 4.5 (see gotcha); checked on app.mylanora.world: paste, pre-fill, correct, save |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
 | Lab 7 Terraform: `infra/*.tf` (Cognito, report, parser), `infra/bootstrap/` (HCP OIDC role + workspace), `.terraformignore`, `make infra-*`, `scripts/infra-env.sh`, CI job `terraform`; ADR `docs/adr/0007-terraform.md`, submission notes `docs/lab7.md` | done - 27 CloudFormation resources retained, stacks deleted, 39 imported (0 re-created), "No changes" after the import (PR #12, `7006dcf`); the workspace follows `main` through the HCP Terraform GitHub App (installed on this repository only): PR plan checks, auto-apply on merge - PR #13 (log retention 7 -> 14 days) applied by its merge; Step 5 drift found and reverted. Submission files in `submission/lab7/` (untracked) |
+| Lab 8 Big Data: `labs/lab8/` (Athena SQL, Redpanda + Python, Kinesis producer), `infra/lab8/` + `lab8_stream_enabled`, answers in `docs/lab8.md` | Parts 1-3 done (`pytest` in `labs/lab8/streaming`: 7 passed); Part 4 planned, not applied: needs the account on the Paid plan |
 
 ## Running
 
@@ -56,6 +57,8 @@ make infra-plan                     # remote plan in HCP Terraform (after terraf
 - The AWS account is on the **Free plan**: Aurora can only be created with "express configuration"
   (no CloudFormation property - hence RDS `db.t4g.micro`), and Route 53 cannot register domains
   (buy one elsewhere; Route 53 DNS zones and ACM do work).
+- Kinesis and Firehose answer `SubscriptionRequiredException` on the Free plan, in every region.
+- A closed lid sleeps the laptop despite `caffeinate` (`Clamshell Sleep`), and long local runs stop.
 - GitHub tokens for this repository carry an **immutable subject**
   (`repo:yurleomel@<id>/OOAD_Lab2@<id>:...`); `github-role.sh` reads the prefix from the GitHub
   API. CloudTrail's `AssumeRoleWithWebIdentity` events show the subject a failed run presented.

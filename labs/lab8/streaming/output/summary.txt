@@ -1,0 +1,57 @@
+the truth, from the file
+  payments 33568, failed 6.02%, windows 4437
+
+baseline: grace 2 minutes
+  read 101788, duplicates 1085, late 1587
+  payments in windows 33007, failed 5.96%
+  alerts 882, of them in windows of 10+ payments 236
+  windows differing from the reference: 505 of 4437
+  offsets first {'2': 0, '0': 0, '1': 0} last {'2': 33830, '0': 33816, '1': 34139}
+
+experiment 1: control, ran without a stop, 17:00-19:00
+  read 15199, duplicates 146, late 234
+  payments in windows 4924, failed 5.87%
+  alerts 99, of them in windows of 10+ payments 40
+  offsets first {'1': 0, '0': 0, '2': 0} last {'1': 5089, '0': 5085, '2': 5022}
+
+experiment 1: stopped for a minute
+  read 15199, duplicates 146, late 202
+  payments in windows 4851, failed 5.92%
+  alerts 98, of them in windows of 10+ payments 40
+  windows differing from the reference: 13 of 430
+  offsets first {'1': 0, '0': 0, '2': 0} last {'1': 1906, '0': 1722, '2': 1730}
+  offsets first {'0': 1723, '1': 1907, '2': 1731} last {'0': 5085, '1': 5089, '2': 5022}
+
+experiment 2: consumer a, partitions 0 and 1 after the rebalance
+  read 68598, duplicates 750, late 1079
+  payments in windows 22237, failed 5.88%
+  alerts 786, of them in windows of 10+ payments 135
+  offsets first {'2': 0, '0': 0, '1': 0} last {'2': 640, '0': 33816, '1': 34139}
+
+experiment 2: consumer b, partition 2
+  read 33190, duplicates 335, late 518
+  payments in windows 10767, failed 6.12%
+  alerts 555, of them in windows of 10+ payments 13
+  offsets first {'2': 641} last {'2': 33830}
+
+experiment 2: both added up
+  read 101788, duplicates 1085, late 1597
+  payments in windows 33004, failed 5.96%
+  alerts 882, of them in windows of 10+ payments 236
+  windows differing from the reference: 507 of 4437
+  offsets first {'2': 0, '0': 0, '1': 0} last {'2': 640, '0': 33816, '1': 34139}
+  offsets first {'2': 641} last {'2': 33830}
+
+experiment 3: 17:00-19:00, 30% made to fail
+  read 15199, duplicates 146, late 234
+  payments in windows 4924, failed 33.49%
+  alerts 370, of them in windows of 10+ payments 212
+  offsets first {'1': 0, '0': 0, '2': 0} last {'1': 5089, '0': 5085, '2': 5022}
+  the same hours in the baseline: failed 5.87%, alerts 99, of them in windows of 10+ payments 40
+
+experiment 4: grace zero
+  read 101788, duplicates 1085, late 1973
+  payments in windows 32875, failed 5.96%
+  alerts 882, of them in windows of 10+ payments 234
+  windows differing from the reference: 609 of 4437
+  offsets first {'2': 0, '0': 0, '1': 0} last {'2': 33830, '0': 33816, '1': 34139}

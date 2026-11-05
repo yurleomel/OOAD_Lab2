@@ -1,0 +1,15 @@
+2026-11-05 19:56:45     136863 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-55-44-61d21a57-6a9a-4007-bddf-fe3918db0f0b
+2026-11-05 19:56:45     120962 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-55-44-ae56cd33-f86d-4142-8232-d365f51571af
+2026-11-05 19:56:45     120386 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-55-44-d8e7bc68-25b3-449b-93e6-87faf8d2c9da
+2026-11-05 19:56:45     113868 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-55-44-ece36e03-0d74-41eb-95a6-e8a8fddac880
+2026-11-05 20:00:39     121653 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-59-32-092bc046-493e-45e6-b1f4-8684806100e0
+2026-11-05 20:00:35     121803 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-59-32-662cd16a-2afb-4ec5-8345-ace2e958f79b
+2026-11-05 20:00:37     141839 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-59-32-81559cb6-fe9a-458b-a9e5-58322746104a
+2026-11-05 20:00:37     157720 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-17-59-32-dc6a59dc-2d59-465a-92e4-12dedca27779
+2026-11-05 20:01:40     148137 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-18-00-36-23bd319d-af56-45c8-88b4-54c175b5bad4
+2026-11-05 20:01:44     151501 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-18-00-36-2b68f9c5-e7bc-48b6-a84c-fe96c57ae81c
+2026-11-05 20:01:42     132738 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-18-00-36-33fe25c8-3980-4003-a7f7-8f4a74f1984e
+2026-11-05 20:01:43     132556 payments-stream/dt=2026-11-05/peach-lab8-payments-1-2026-11-05-18-00-36-fbbdba76-0ef3-40b2-bf63-f56835878694
+
+Total Objects: 12
+   Total Size: 1600026

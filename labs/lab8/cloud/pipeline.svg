@@ -87,6 +87,6 @@
   <text class="note" x="62" y="500">Created and removed with one pull request each, so no stream keeps billing after the lab.</text>
   <rect class="box kept" x="35" y="516" width="18" height="18" rx="3"/>
   <text class="note" x="62" y="530">Stays outside the switch, so the delivered data can still be queried afterwards.</text>
-  <text class="note" x="35" y="572">Data source: the same Uklon payment events as Parts 2 and 3. The producer replays two ten-minute slices of one day's file;</text>
-  <text class="note" x="35" y="594">the second one runs with --fail-rate 0.3, which flips 30% of the payments to failed so that the alert has something to fire on.</text>
+  <text class="note" x="35" y="572">Data source: the same Uklon payment events as Parts 2 and 3. The producer replays three ten-minute slices of one day's file;</text>
+  <text class="note" x="35" y="594">the last two run with --fail-rate 0.3, which flips 30% of the payments to failed so that the alert has something to fire on.</text>
 </svg>

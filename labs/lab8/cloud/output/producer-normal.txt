@@ -1,0 +1,2 @@
+sending 1183 events at 60 events/s
+done: 1183 events in 20 s

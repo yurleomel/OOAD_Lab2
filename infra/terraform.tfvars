@@ -10,3 +10,6 @@ mail_domain      = "mylanora.world"
 # Two weeks of builder and mailer logs: a Monday report that failed can still
 # be read on the next Monday.
 report_log_retention_days = 14
+
+# Lab 8, Part 4: the Kinesis pipeline is billed by the hour. Remove when finished.
+lab8_stream_enabled = true

@@ -40,15 +40,13 @@ def inject_failure(event: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file")
-    parser.add_argument("--topic", default="payments")
-    parser.add_argument("--brokers", default="127.0.0.1:19092")
     parser.add_argument("--payments-per-second", type=float, default=20)
     parser.add_argument("--between", nargs=2, metavar=("HH:MM", "HH:MM"), help="replay only this part of the day")
     parser.add_argument("--fail-rate", type=float, default=0, help="make this share of payments fail")
     args = parser.parse_args()
 
     events = read_events(args.file, args.between)
-    producer = Producer({"bootstrap.servers": args.brokers, "acks": "all", "enable.idempotence": True})
+    producer = Producer({"bootstrap.servers": "127.0.0.1:19092"})
 
     gap = 1 / (args.payments_per_second * EVENTS_PER_PAYMENT)
     started = time.monotonic()
@@ -59,7 +57,7 @@ def main() -> None:
             inject_failure(event)
 
         # The key picks the partition, so all the events of one payment stay in order, together.
-        producer.produce(args.topic, key=event["invoiceId"], value=json.dumps(event, ensure_ascii=False))
+        producer.produce("payments", key=event["invoiceId"], value=json.dumps(event, ensure_ascii=False))
         producer.poll(0)  # delivers callbacks and frees the send queue
 
         # Pace by the clock, not by sleeping a fixed gap: the error does not accumulate.

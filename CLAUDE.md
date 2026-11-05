@@ -21,7 +21,7 @@ upstream repository and are being written here.
 | Lab 6 Paste an agenda: `app/ai/` (parser, Lambda handler, prices), agenda on tasks (`0005`), `infra/ai.tf` (until Lab 7 `ai.yml` + `deploy-ai.sh`; parser outside the VPC + $5 budget), `llm.sh`, `make llm-hello/parse/parse-logs`, the paste screen; ADR `docs/adr/0006-llm-agenda-parsing.md`, C4 `docs/architecture.md`, submission notes `docs/lab6.md` | done - `pytest` 124, vitest 72; `peach-ai` live (parser URL in `PARSER_URL`, $5 budget `peach-monthly`), prompt `agenda-v2`, Converse + Claude Haiku 4.5 (see gotcha); checked on app.mylanora.world: paste, pre-fill, correct, save |
 | Custom domain for `app.` / `api.` (`api-edge.yaml`, `domain-backend.sh`) | done - `mylanora.world` at Namecheap, 4 CNAMEs by hand; HTTP redirects to HTTPS |
 | Lab 7 Terraform: `infra/*.tf` (Cognito, report, parser), `infra/bootstrap/` (HCP OIDC role + workspace), `.terraformignore`, `make infra-*`, `scripts/infra-env.sh`, CI job `terraform`; ADR `docs/adr/0007-terraform.md`, submission notes `docs/lab7.md` | done - 27 CloudFormation resources retained, stacks deleted, 39 imported (0 re-created), "No changes" after the import (PR #12, `7006dcf`); the workspace follows `main` through the HCP Terraform GitHub App (installed on this repository only): PR plan checks, auto-apply on merge - PR #13 (log retention 7 -> 14 days) applied by its merge; Step 5 drift found and reverted. Submission files in `submission/lab7/` (untracked) |
-| Lab 8 Big Data: `labs/lab8/` (Athena SQL, Redpanda + Python, Kinesis producer), `infra/lab8/` + `lab8_stream_enabled`, answers in `docs/lab8.md` | Parts 1-3 done (`pytest` in `labs/lab8/streaming`: 7 passed); Part 4 planned, not applied: needs the account on the Paid plan |
+| Lab 8 Big Data: `labs/lab8/` (Athena SQL, Redpanda + Python, Kinesis producer), `infra/lab8/` + `lab8_stream_enabled`, answers in `docs/lab8.md` | done - Parts 1-4 (`pytest` in `labs/lab8/streaming`: 7 passed). Part 4 ran on 2026-11-05: on through PR #16, off through PR #17, stream and Firehose verified gone, delivered files still in S3 and readable as `lab8_stream.payments_stream`. Submission files in `submission/lab8/` (untracked) |
 
 ## Running
 
@@ -54,10 +54,16 @@ make infra-plan                     # remote plan in HCP Terraform (after terraf
   `tests/setup.ts`); set `location.pathname` / `location.search` there and assert on `router`.
 - `components/ui/*` stays as generated; restyle at the call site (see `inputClass` in
   `components/auth-layout.tsx`) or through the tokens in `app/globals.css`.
-- The AWS account is on the **Free plan**: Aurora can only be created with "express configuration"
-  (no CloudFormation property - hence RDS `db.t4g.micro`), and Route 53 cannot register domains
-  (buy one elsewhere; Route 53 DNS zones and ACM do work).
-- Kinesis and Firehose answer `SubscriptionRequiredException` on the Free plan, in every region.
+- The AWS account moved to the **Paid plan** on 2026-11-05 for Lab 8; credits still apply, usage past
+  them is charged to the card. Choices made on the Free plan stay: Aurora could only be created with
+  "express configuration" (no CloudFormation property - hence RDS `db.t4g.micro`), and Route 53 could
+  not register domains (Route 53 DNS zones and ACM do work).
+- `~/.gitconfig` carries the owner's real name and address, which must not be pushed. Commit with
+  `git -c user.name=yurleomel -c user.email=<the noreply address of a merge commit on main>`.
+- An SNS email subscription stays `PendingConfirmation` and delivers nothing until the link in its
+  letter is followed. Each `lab8_stream_enabled` run creates a new one.
+- Kinesis and Firehose answer `SubscriptionRequiredException` on the Free plan, in every region and
+  whatever the credit balance.
 - A closed lid sleeps the laptop despite `caffeinate` (`Clamshell Sleep`), and long local runs stop.
 - GitHub tokens for this repository carry an **immutable subject**
   (`repo:yurleomel@<id>/OOAD_Lab2@<id>:...`); `github-role.sh` reads the prefix from the GitHub

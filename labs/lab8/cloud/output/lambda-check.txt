@@ -1,0 +1,12 @@
+19:57:06 {"records": 290, "total": 97, "failed": 5, "share": 0.0515}
+19:57:06 {"records": 273, "total": 92, "failed": 7, "share": 0.0761}
+19:57:06 {"records": 291, "total": 93, "failed": 4, "share": 0.043}
+19:57:06 {"records": 329, "total": 108, "failed": 8, "share": 0.0741}
+20:00:26 {"records": 289, "total": 96, "failed": 36, "share": 0.375}
+20:00:26 {"records": 290, "total": 95, "failed": 30, "share": 0.3158}
+20:00:26 {"records": 376, "total": 125, "failed": 40, "share": 0.32}
+20:00:26 {"records": 337, "total": 113, "failed": 36, "share": 0.3186}
+20:01:36 {"records": 315, "total": 102, "failed": 38, "share": 0.3725}
+20:01:36 {"records": 360, "total": 117, "failed": 48, "share": 0.4103}
+20:01:37 {"records": 351, "total": 117, "failed": 42, "share": 0.359}
+20:01:37 {"records": 316, "total": 106, "failed": 30, "share": 0.283}

@@ -257,15 +257,61 @@ catch them at a fixed size. The price: a duplicate older than the TTL gets throu
 
 ## Part 4 — Streaming in the cloud
 
-**Not run yet: Kinesis and Firehose are not available on the AWS Free plan.** The code is ready and
-planned: 12 resources to add, nothing changed or destroyed.
+Run on 5 November, on the same payments dataset as Parts 2 and 3. Diagram: `labs/lab8/cloud/pipeline.svg`.
+Producer: `labs/lab8/cloud/producer.py`. Query: `athena/sql/check_stream.sql`. Logs: `cloud/output/`.
 
-Same payments dataset. `infra/lab8/` holds the stream, Firehose, the Lambda check and the SNS topic, in
-the same Terraform workspace as the rest of the project, so the change is reviewed as a plan on a pull
-request and applied on merge. `lab8_stream_enabled` in `infra/terraform.tfvars` is off by default: one pull
-request switches the pipeline on, the next removes it, and no stream is left running. The bucket, the
-crawler (`labs/lab8/cloud/crawl.sh`) and the Athena tables stay outside the switch, so the data can still
-be read afterwards. The producer is `labs/lab8/cloud/producer.py`.
+`infra/lab8/` holds the stream, Firehose, the Lambda check and the SNS topic, in the same Terraform
+workspace as the rest of the project. `lab8_stream_enabled` is off by default: PR #16 switched the pipeline
+on (plan: 12 to add, nothing changed or destroyed), PR #17 removed it (plan: 12 to destroy). The stream
+lived for 30 minutes. The bucket, the crawler (`cloud/crawl.sh`) and the Athena tables stay outside the
+switch, so the data can still be read afterwards. Kinesis and Firehose need the account on the Paid plan;
+on the Free plan they answer `SubscriptionRequiredException`, whatever the credit balance.
+
+**What came through.** Nothing was lost: Athena reads exactly what the producer sent, in 12 files.
+
+| Slice of 15 Oct | Sent | In Athena | Payments | Failed | Lambda batches | Share per batch | Alerts |
+|---|---|---|---|---|---|---|---|
+| 17:00–17:10 | 1,183 | 1,183 | 417 | 6.08% | 4 | 4.3–7.6% | 0 |
+| 18:00–18:10, `--fail-rate 0.3` | 1,292 | 1,292 | 453 | 33.18% | 4 | 31.6–37.5% | 4 |
+| 18:10–18:20, `--fail-rate 0.3` | 1,342 | 1,342 | 468 | 36.24% | 4 | 28.3–41.0% | 4 |
+
+The 8 alerts arrived by email; SNS reports 8 published, 8 delivered, 0 failed. An email subscription
+delivers nothing until the link in its confirmation letter is followed. The alert was also far less noisy
+than in Part 3: a batch holds about 100 payments rather than about 6, and all 4 batches of the normal slice
+stayed under 10%. That is 4 batches, not a day, but it is the minimum sample that Part 3 asked for.
+
+**Where it differs from Redpanda in Part 3.**
+
+| | Redpanda, local | Kinesis, Firehose, Lambda |
+|---|---|---|
+| Who runs it | a container on the laptop; it stops when the laptop sleeps | AWS, around the clock |
+| Capacity | 3 partitions, chosen by me | on-demand: AWS opened 4 shards by itself |
+| Reading | my loop, with a consumer group and offsets | Firehose and the Lambda trigger keep their own position; no reading code |
+| Time | event time: one-minute windows with a watermark and grace | arrival time: whatever is in a batch of up to 60 s; a late event simply counts in a later batch, nothing is rejected |
+| Failure share | per window, across the group's partitions | per batch **per shard**: 4 shards give 4 Lambda runs and up to 4 alerts for one problem |
+| Duplicates | dropped across the whole run by the seen set | dropped only inside one batch by the Lambda; Firehose stores every copy, so Athena still needs the dedup view of Part 2 |
+| What remains | nothing: the windows lived in the process | files in S3, queried with SQL an hour later or a year later |
+| Partition `dt` | | the day it **arrived** (2026-11-05), not the day it happened (2026-10-15) as in Part 2 |
+| Writing it | about 140 lines of consumer | about 30 lines of Lambda, plus 12 Terraform resources and their permissions |
+
+Local is the better place to understand watermarks and windows, since all of it is visible and free. The
+cloud has less code and no machine to keep awake, and pays for that with coarser answers: real event-time
+windows across shards would need Managed Flink, as in Uklon's diagram.
+
+**What it cost: about $0.04**, from measured usage and AWS's list prices; the bill catches up in about a
+day. The stream's hourly charge is nearly all of the pipeline itself: the data is tiny.
+
+| Item | Usage | Price | Cost |
+|---|---|---|---|
+| Kinesis stream | 0.5 stream-hours | $0.04 per hour | $0.020 |
+| Kinesis data in | 3,817 records, about 4 MB | $0.08 per GB | $0.0003 |
+| Kinesis data read, 2 readers | about 3 MB | $0.04 per GB | $0.0001 |
+| Firehose | 3,817 records, each rounded up to 5 KB: 19 MB | $0.029 per GB | $0.0006 |
+| Glue Crawler | 0.042 DPU-hours | $0.44 per DPU-hour | $0.018 |
+| Athena | under 10 MB, the minimum | $5 per TB | $0.00005 |
+| Lambda, S3, SNS email | 12 runs, 1.6 MB, 8 emails | | under $0.001 |
+
+The same stream left on for a month costs $29 with no data at all, which is why the lab asks to delete it.
 
 ## What we discuss in class
 

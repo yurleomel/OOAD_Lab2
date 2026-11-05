@@ -50,7 +50,7 @@ def show(title, counts, summaries, true=None):
     print(f"  payments in windows {payments}, failed {sum(f for f, _ in counts.values()) / payments:.2%}")
     print(f"  alerts {alerts(counts)}, of them in windows of 10+ payments {alerts(counts, 10)}")
     if true:
-        print(f"  windows differing from the truth: {sum(counts.get(k, (0, 0)) != v for k, v in true.items())} of {len(true)}")
+        print(f"  windows differing from the reference: {sum(counts.get(k, (0, 0)) != v for k, v in true.items())} of {len(true)}")
     for s in summaries:
         print(f"  offsets first {s['first_offset']} last {s['last_offset']}")
 
@@ -62,7 +62,9 @@ def main():
 
     baseline = read("baseline")
     show("baseline: grace 2 minutes", *baseline, true)
-    show("experiment 1: stopped for a minute", *read("exp1-restart-part1", "exp1-restart-part2"), true)
+    control = read("exp1-control")
+    show("experiment 1: control, ran without a stop, 17:00-19:00", *control)
+    show("experiment 1: stopped for a minute", *read("exp1-restart-part1", "exp1-restart-part2"), control[0])
     show("experiment 2: consumer a, partitions 0 and 1 after the rebalance", *read("exp2-consumer-a"))
     show("experiment 2: consumer b, partition 2", *read("exp2-consumer-b"))
     show("experiment 2: both added up", *read("exp2-consumer-a", "exp2-consumer-b"), true)

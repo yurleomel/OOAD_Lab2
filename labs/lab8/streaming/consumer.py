@@ -88,7 +88,16 @@ def main():
         print(f"{time.strftime('%H:%M:%S')} assigned partitions {[p.partition for p in partitions]}", flush=True)
 
     consumer.subscribe(["payments"], on_assign=on_assign)
-    signal.signal(signal.SIGTERM, signal.default_int_handler)  # `kill` stops it like Ctrl-C
+
+    # A signal only sets this flag, so a message already taken from the log still gets processed.
+    stopping = False
+
+    def stop(*_):
+        nonlocal stopping
+        stopping = True
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
 
     alerts = closed = 0
 
@@ -105,28 +114,26 @@ def main():
 
     first_offset, last_offset = {}, {}
     last_message = time.monotonic()
-    try:
-        while True:
-            message = consumer.poll(0.5)
-            if message is None:
-                if args.idle_exit and windows.stats["read"] and time.monotonic() - last_message > args.idle_exit:
-                    report(windows.flush())
-                    break
-                continue
-            if message.error():
-                print("error:", message.error(), flush=True)
-                continue
-            last_message = time.monotonic()
-            first_offset.setdefault(message.partition(), message.offset())
-            last_offset[message.partition()] = message.offset()
-            report(windows.add(json.loads(message.value()), message.partition()))
-    except KeyboardInterrupt:
-        pass  # what was still in open windows dies with this process
-    finally:
-        consumer.close()  # saves the group's place in the log
-        summary = {**windows.stats, "windows": closed, "alerts": alerts, "seen": len(windows.seen)}
-        summary |= {"first_offset": first_offset, "last_offset": last_offset}
-        print("summary", json.dumps(summary), flush=True)
+    while not stopping:
+        message = consumer.poll(0.5)
+        if message is None:
+            if args.idle_exit and windows.stats["read"] and time.monotonic() - last_message > args.idle_exit:
+                report(windows.flush())
+                break
+            continue
+        if message.error():
+            print("error:", message.error(), flush=True)
+            continue
+        last_message = time.monotonic()
+        first_offset.setdefault(message.partition(), message.offset())
+        last_offset[message.partition()] = message.offset()
+        report(windows.add(json.loads(message.value()), message.partition()))
+
+    # When stopped, what is still in open windows dies with this process.
+    consumer.close()  # saves the group's place in the log
+    summary = {**windows.stats, "windows": closed, "alerts": alerts, "seen": len(windows.seen)}
+    summary |= {"first_offset": first_offset, "last_offset": last_offset}
+    print("summary", json.dumps(summary), flush=True)
 
 
 if __name__ == "__main__":

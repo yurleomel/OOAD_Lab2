@@ -1,0 +1,12 @@
+GROUP                  split
+COORDINATOR-NODE       0
+COORDINATOR-PARTITION  __consumer_offsets/0
+STATE                  Stable
+BALANCER               range
+MEMBERS                2
+TOTAL-LAG              142
+
+TOPIC     PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                     CLIENT-ID  HOST
+payments  0          1099            0                 1171            72    rdkafka-5f6332e2-95bc-46ad-b40f-01cb748b27de  rdkafka    172.22.0.1
+payments  1          1048            0                 1113            65    rdkafka-5f6332e2-95bc-46ad-b40f-01cb748b27de  rdkafka    172.22.0.1
+payments  2          1311            0                 1316            5     rdkafka-bc12f7cd-271a-47fa-b84c-0955f2a6ad93  rdkafka    172.22.0.1

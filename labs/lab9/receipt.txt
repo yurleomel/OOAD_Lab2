@@ -1,0 +1,10 @@
+LANORA TEST CAFE
+SYNTHETIC RECEIPT — NO PAYMENT
+17 November 2026
+
+Paper notebook     1 x 2.00
+Coffee             1 x 1.50
+--------------------------
+TOTAL USD              3.50
+
+Demonstration data only.

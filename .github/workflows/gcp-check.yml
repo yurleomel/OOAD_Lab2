@@ -1,0 +1,23 @@
+name: GCP configuration
+
+on:
+  pull_request:
+    paths:
+      - 'gcp/**'
+      - '.github/workflows/gcp-check.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive gcp
+      - run: terraform -chdir=gcp init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=gcp validate
+      - run: terraform -chdir=gcp/bootstrap init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=gcp/bootstrap validate
+      - run: python3 -m unittest discover -s gcp -p 'test_*.py'

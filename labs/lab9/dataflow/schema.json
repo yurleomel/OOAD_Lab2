@@ -1,0 +1,7 @@
+{
+  "BigQuery Schema": [
+    { "name": "id", "type": "INTEGER", "mode": "NULLABLE" },
+    { "name": "topic", "type": "STRING", "mode": "NULLABLE" },
+    { "name": "minutes", "type": "INTEGER", "mode": "NULLABLE" }
+  ]
+}

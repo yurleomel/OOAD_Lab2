@@ -1,0 +1,10 @@
+# Set these as Terraform variables in the peach-gcp HCP workspace.
+# No database password or service-account JSON key is an input.
+project_id                    = "peach-yourname-2026"
+runtime_service_account_email = "peach-api@peach-yourname-2026.iam.gserviceaccount.com"
+region                        = "us-central1"
+cognito_region                = "us-east-1"
+cognito_user_pool_id           = "your-existing-pool-id"
+cognito_client_id              = "your-existing-public-client-id"
+database_running              = true
+# api_image = "us-central1-docker.pkg.dev/peach-yourname-2026/peach/backend@sha256:..."

@@ -1,0 +1,16 @@
+{
+  "project": "lanora-511019",
+  "cloud_sql": {
+    "name": "peach-postgres",
+    "state": "STOPPED",
+    "activation_policy": "NEVER"
+  },
+  "dataflow": {
+    "id": "2026-11-17_05_01_10-8688510766657573056",
+    "state": "JOB_STATE_DONE",
+    "finished_at": "2026-11-17T13:05:07.352624Z"
+  },
+  "compute_instances": [],
+  "note": "Retained SQL disk/backups and idle public IPv4 still bill; this is not a billing report.",
+  "recorded_at": "2026-11-17T13:06:53.906123+00:00"
+}

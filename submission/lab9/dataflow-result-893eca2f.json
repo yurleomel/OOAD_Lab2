@@ -1,0 +1,36 @@
+{
+  "project": "lanora-511019",
+  "job_id": "2026-11-17_05_01_10-8688510766657573056",
+  "region": "us-central1",
+  "template": "gs://dataflow-templates-us-central1/latest/GCS_Text_to_BigQuery",
+  "input_rows": 3,
+  "output_table": "lanora-511019:lab9.dataflow_demo_a714f4b8abd5",
+  "launch": {
+    "jobName": "peach-lab9-a714f4b8abd5",
+    "parameters": {
+      "inputFilePattern": "gs://lanora-511019-lab9/dataflow-a714f4b8abd5/input.csv",
+      "JSONPath": "gs://lanora-511019-lab9/dataflow-a714f4b8abd5/schema.json",
+      "outputTable": "lanora-511019:lab9.dataflow_demo_a714f4b8abd5",
+      "javascriptTextTransformGcsPath": "gs://lanora-511019-lab9/dataflow-a714f4b8abd5/transform.js",
+      "javascriptTextTransformFunctionName": "transform",
+      "bigQueryLoadingTemporaryDirectory": "gs://lanora-511019-lab9/dataflow-a714f4b8abd5/bq-temp"
+    },
+    "environment": {
+      "numWorkers": 1,
+      "maxWorkers": 1,
+      "machineType": "e2-standard-2",
+      "diskSizeGb": 30,
+      "serviceAccountEmail": "peach-dataflow@lanora-511019.iam.gserviceaccount.com",
+      "tempLocation": "gs://lanora-511019-lab9/dataflow-a714f4b8abd5/temp",
+      "workerRegion": "us-central1",
+      "additionalUserLabels": {
+        "lab": "9",
+        "purpose": "three-synthetic-rows"
+      }
+    }
+  },
+  "state": "JOB_STATE_DONE",
+  "create_time": "2026-11-17T13:01:12.099809Z",
+  "current_state_time": "2026-11-17T13:05:07.352624Z",
+  "recorded_at": "2026-11-17T13:05:16.980035+00:00"
+}

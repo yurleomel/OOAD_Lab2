@@ -1,5 +1,10 @@
 # Peach
 
+> **Lab 9 — Google Cloud:** the second Lanora deployment is described in
+> [gcp/README.md](gcp/README.md), including authentication, Terraform, deployment and stopping
+> database compute. Service choices: [ADR 0009](docs/adr/0009-google-cloud.md).
+> Progress and submission evidence: [docs/lab9.md](docs/lab9.md).
+
 A monorepo starter: **FastAPI** backend, **Next.js + shadcn/ui** frontend, **PostgreSQL** database,
 everything runnable with a single `docker compose up`.
 

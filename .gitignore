@@ -37,3 +37,10 @@ pgdata/
 *.tfplan
 tfplan
 crash.log
+
+# --- GCP lab: local configuration and retained isolated build artifacts ---
+gcp/terraform.tfvars
+gcp/*.auto.tfvars
+gcp/bootstrap/terraform.tfvars
+.gcp-builds/
+.firebase/

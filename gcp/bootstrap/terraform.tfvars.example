@@ -1,0 +1,4 @@
+project_id           = "peach-yourname-2026"
+billing_account_id   = "000000-000000-000000"
+cognito_user_pool_id = "your-existing-pool-id"
+cognito_client_id    = "your-existing-public-client-id"

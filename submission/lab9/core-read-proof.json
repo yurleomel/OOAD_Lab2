@@ -1,0 +1,11 @@
+{
+  "api_url": "https://peach-api-lwunl4a43q-uc.a.run.app",
+  "cognito_authentication": "passed",
+  "database_readiness": "passed",
+  "task_persists": true,
+  "anonymous_status": 401,
+  "before_total": 0,
+  "after_total": 1,
+  "task_id": "d7739476-2e3d-42cf-a3d8-c1b7c47cd33e",
+  "account_credentials": "retained locally; not in evidence"
+}

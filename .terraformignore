@@ -8,3 +8,15 @@ infra/.terraform/
 infra/bootstrap/
 .env
 .env.*
+
+# Lab 9 has its own working directory and state. Both root modules must be
+# uploadable, but local bootstrap state, inputs and build artifacts must not.
+!gcp/
+!gcp/**
+gcp/.terraform/
+gcp/bootstrap/
+gcp/*.tfvars
+gcp/*.auto.tfvars
+gcp/*.tfstate*
+gcp/*.tfplan
+gcp/.env*

@@ -1,5 +1,25 @@
 # Peach — PROJECT.md
 
+## Lab 9 extension — second deployment on Google Cloud (2026-11-17)
+
+`gcp/` is a separate Terraform root for project `lanora-511019`, HCP workspace `peach-gcp` and
+region `us-central1`. It deploys the existing SQL-backed core to Firebase Hosting, Cloud Run,
+Artifact Registry, Cloud SQL PostgreSQL 17 (`db-f1-micro`, 10 GB SSD), and Secret Manager.
+`gcp/bootstrap/` owns its separate service accounts, OIDC trust and USD 5 budget alert. Existing
+AWS resources remain in their current roots and states. See `docs/adr/0009-google-cloud.md`.
+
+The GCP container runs Uvicorn on `$PORT` as a non-root user. Migrations are a separate Cloud
+Run job against an empty database. Production retains Cognito token verification. The initial
+Firebase build supports Cognito email/password; Google and agenda-paste are hidden until their
+new origins are configured on the AWS services. AWS reports continue to read AWS tasks.
+
+Cloud Run scales to zero and has a maximum of one instance. Database compute is explicitly
+controlled by `database_running`, initially true for provisioning; stopped storage still bills. No destructive
+cleanup is part of this workflow. Static frontend builds use new retained `.gcp-builds/`
+directories. The core is deployed and its database read was verified; SQL is now stopped.
+Deployment/evidence status is tracked in
+`docs/lab9.md`, and the deployment runbook is `gcp/README.md`.
+
 This file is the specification of the repository: its structure, the contracts between its parts,
 and how it runs locally and on AWS. It contains no implementation code. Code is generated from it
 and reviewed against it; where the two disagree, this file wins until it is changed in a reviewed

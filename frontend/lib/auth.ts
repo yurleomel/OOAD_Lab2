@@ -398,6 +398,7 @@ export const startGoogleSignIn = () => startHostedSignIn("Google");
  * cookie, without which the next /login would sign the same user straight back in.
  */
 export function hostedLogoutUrl(): string | null {
+  if (!config.hostedRedirectsEnabled) return null;
   if (!authConfigured || !config.domain) return null;
   const params = new URLSearchParams({
     client_id: config.clientId,

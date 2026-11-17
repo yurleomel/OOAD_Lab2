@@ -1,0 +1,19 @@
+{
+  "project": "lanora-511019",
+  "report_url": "https://datastudio.google.com/reporting/49eadb28-85bc-4337-a81b-4f262abd613d/page/TymDG",
+  "report_title": "Lab 9 — Shakespeare words from BigQuery",
+  "data_source": "lanora-511019.lab9.shakespeare_top10",
+  "dimension": "corpus",
+  "metric": "SUM(total_words)",
+  "sort": "SUM(total_words) descending",
+  "rows": 10,
+  "screenshot": "looker-studio-bigquery-chart.png",
+  "screenshot_sha256": "029023fb9b943bd4b8f23a51520db7c5e5cdea7a3f9c422fda4089f48f08238e",
+  "screenshot_pixels": [
+    3840,
+    2028
+  ],
+  "access": "Private owner report; sharing permissions were not expanded",
+  "checked_on": "2026-11-17",
+  "ui_note": "The current interface banner says Looker Studio is now Data Studio (Центр даних)."
+}

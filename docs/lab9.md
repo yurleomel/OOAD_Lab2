@@ -18,7 +18,7 @@ real cloud output or screenshot.
 | Frontend and authenticated API reading Cloud SQL | Firebase URL, private-window screenshot and `core-read-proof.json` | Passed; database now stopped |
 | Four traffic profiles and calculator estimates | Cost table below | Pending calculator verification |
 | BigQuery query and bytes processed | `bigquery-5d721cff.json` | Passed; clearer screenshot still needed |
-| Looker Studio chart | Screenshot over the BigQuery result | Pending run |
+| Looker Studio chart | `looker-studio-bigquery-chart.png` and `looker-studio.json` | Created and visually verified |
 | Vision or Document AI OCR | `vision-ocr-dfdc251e.json` and synthetic receipt | API passed; screenshot pending |
 | Dataflow small-file batch demo | `dataflow-verified-e2dbab92.json` | Completed; three output rows verified |
 | Gemini agenda prompt in Vertex AI Studio | `gemini-agenda-a24ac7c3.json` and comparison below | Vertex API passed; Studio UI pending |
@@ -127,6 +127,15 @@ S3 landing files; Dataflow replaces Glue-style transforms; Looker Studio covers 
 No cluster is provisioned for BigQuery, but scans still cost money beyond the quota. Setting
 `LIMIT` does not reduce bytes read from all scanned columns.
 
+The actual Looker Studio report is
+[Lab 9 — Shakespeare words from BigQuery](https://datastudio.google.com/reporting/49eadb28-85bc-4337-a81b-4f262abd613d/page/TymDG).
+It connects directly to the saved `shakespeare_top10` table and shows ten horizontal bars:
+`corpus` on Y, `SUM(total_words)` on X, descending. Hamlet has 32,446 words and Antony and
+Cleopatra has 27,310, matching the saved query result. The report remains private to its owner;
+the submission contains the readable screenshot, source table and field configuration.
+The current Google UI labels the product **Data Studio / Центр даних** and displays a banner
+explaining the rename from Looker Studio; this is the same service requested in the lab.
+
 ## Other Part 4 demonstrations
 
 - **OCR:** choose Vision text detection on a receipt/handwritten photo OR Document AI OCR on
@@ -217,8 +226,30 @@ Billing Reports the next day.
   `database_running = false`. A subsequent API description returned SQL **STOPPED** and
   activation policy **NEVER**. Dataflow completed and its workers are no longer present.
   SQL disk, backups and idle public IPv4 remain chargeable; the USD 5 alert is not a cap.
-- Still required: Looker Studio chart, readable BigQuery and OCR screenshots, the Studio UI
+- Still required: readable BigQuery and OCR screenshots, the Studio UI
   step, official calculator evidence, and a billing check the next day.
+
+### Continuation checkpoint (2026-11-17)
+
+- Created the Looker Studio report and its BigQuery-backed chart. Saved and visually checked
+  `submission/lab9/looker-studio-bigquery-chart.png` (3840 × 2028); its manifest records the
+  exact source, fields and screenshot hash.
+- Added `labs/lab9/cost_report.py` and `submission/lab9/cost-breakdown-2026-11-17.json`.
+  Every profile now has individual service lines, inputs and totals. All component sums
+  reconcile with `costs.py`. This is a forecast, not an invoice or a calculator screenshot.
+- Rechecked the Google SQL/Run/Hosting/registry/secrets/logging and AWS Lambda/CloudFront
+  pricing sources. Firebase **Hosting** has 10 GB storage and 360 MB/day transfer allowances;
+  it is separate from Firebase App Hosting. The actual exported site is 91 files, 2.14 MiB
+  uncompressed, and the GCP registry reported 83.899 MB. The cost model assumes static traffic
+  remains below the daily transfer allowance, shared quotas remain available and AWS ECR
+  retains 0.5 GB; those usage assumptions are not measured monthly bills.
+- Added `submission/lab9/vision-ocr-evidence.html`, an explicitly labelled local viewer of the
+  real Vision response beside its original synthetic image. Opening it makes no new OCR call.
+  A browser screenshot of that page is still pending.
+- Chrome became unavailable with `cgWindowNotFound` during the BigQuery screenshot step.
+  Reconnecting the computer-use session did not restore a visible window. No SQL instance
+  or Dataflow worker was started during this continuation. Remaining UI steps need access
+  to the unlocked, visible browser.
 
 ### Earlier setup checkpoint (retained for provenance)
 

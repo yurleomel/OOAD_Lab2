@@ -1,0 +1,291 @@
+{
+  "as_of": "2026-11-17",
+  "currency": "USD",
+  "month_hours": "730",
+  "type": "Arithmetic forecast; neither a measured bill nor a load test",
+  "calculator_ui_verification": "Pending; no calculator result is claimed by this file",
+  "free_tier_assumption": "Shared monthly/daily allowances remain available",
+  "excluded": [
+    "Promotional credits and tax",
+    "Optional report, email, AI and one-off data-platform demo workloads",
+    "External domain registrar renewal",
+    "Unexpected bursts, extra images, log retention and cold-start overhead"
+  ],
+  "sources": {
+    "cloud_sql": "https://cloud.google.com/sql/pricing",
+    "cloud_run": "https://cloud.google.com/run/pricing",
+    "firebase_hosting": "https://firebase.google.com/pricing",
+    "artifact_registry": "https://cloud.google.com/artifact-registry/pricing",
+    "secret_manager": "https://cloud.google.com/secret-manager/pricing",
+    "cloud_logging": "https://cloud.google.com/products/observability/pricing",
+    "aws_rds": "https://aws.amazon.com/rds/postgresql/pricing/",
+    "aws_lambda": "https://aws.amazon.com/lambda/pricing/",
+    "aws_cloudfront": "https://aws.amazon.com/cloudfront/faqs/"
+  },
+  "profiles": {
+    "nobody": {
+      "inputs": {
+        "active_hours": "0",
+        "requests": "0",
+        "requests_per_active_second": 1,
+        "assumed_billed_duration_ms": 200,
+        "memory_gib": "0.5",
+        "cloud_run_vcpu": 1,
+        "simultaneous_requests_assumed": 1,
+        "configured_cloud_run_concurrency_limit": 10,
+        "response_bytes": 2048,
+        "response_destination": "Europe",
+        "total_api_response_gib": "0",
+        "static_origin_gets_per_month": 10000,
+        "static_transfer_assumption": "Small cached site; below Firebase 360 MB each day"
+      },
+      "aws_components_usd": {
+        "rds_instance": "11.680",
+        "rds_20_gib_gp2": "2.300",
+        "rds_backup_within_included_allocation": "0",
+        "lambda_compute_and_requests": "0E-10",
+        "s3_static_storage_and_origin_gets": "0.004069",
+        "cloudfront_delivery_within_shared_free_quota": "0",
+        "ecr_assumed_half_gb_retained": "0.050",
+        "database_secret": "0.40",
+        "cloudwatch_within_shared_free_quota": "0",
+        "cognito_within_existing_shared_free_quota": "0",
+        "tls_certificate_and_existing_dns": "0"
+      },
+      "gcp_always_running_components_usd": {
+        "cloud_sql_compute": "7.6650",
+        "cloud_sql_idle_ipv4": "0.00",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "0E-7",
+        "api_egress_to_europe": "0.00",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "gcp_scheduled_components_usd": {
+        "cloud_sql_compute": "0.0000",
+        "cloud_sql_idle_ipv4": "7.30",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "0E-7",
+        "api_egress_to_europe": "0.00",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "totals_usd": {
+        "hours": "0",
+        "requests": "0",
+        "aws_api": "0E-10",
+        "gcp_api": "0E-7",
+        "gcp_egress": "0.00",
+        "aws_total": "14.4340690000",
+        "gcp_always_running_total": "9.4450000",
+        "gcp_scheduled_total": "9.0800000"
+      }
+    },
+    "class demos": {
+      "inputs": {
+        "active_hours": "20",
+        "requests": "72000",
+        "requests_per_active_second": 1,
+        "assumed_billed_duration_ms": 200,
+        "memory_gib": "0.5",
+        "cloud_run_vcpu": 1,
+        "simultaneous_requests_assumed": 1,
+        "configured_cloud_run_concurrency_limit": 10,
+        "response_bytes": 2048,
+        "response_destination": "Europe",
+        "total_api_response_gib": "0.1373291015625",
+        "static_origin_gets_per_month": 10000,
+        "static_transfer_assumption": "Small cached site; below Firebase 360 MB each day"
+      },
+      "aws_components_usd": {
+        "rds_instance": "11.680",
+        "rds_20_gib_gp2": "2.300",
+        "rds_backup_within_included_allocation": "0",
+        "lambda_compute_and_requests": "0E-10",
+        "s3_static_storage_and_origin_gets": "0.004069",
+        "cloudfront_delivery_within_shared_free_quota": "0",
+        "ecr_assumed_half_gb_retained": "0.050",
+        "database_secret": "0.40",
+        "cloudwatch_within_shared_free_quota": "0",
+        "cognito_within_existing_shared_free_quota": "0",
+        "tls_certificate_and_existing_dns": "0"
+      },
+      "gcp_always_running_components_usd": {
+        "cloud_sql_compute": "7.6650",
+        "cloud_sql_idle_ipv4": "0.00",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "0E-7",
+        "api_egress_to_europe": "0.016479492187500",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "gcp_scheduled_components_usd": {
+        "cloud_sql_compute": "0.2100",
+        "cloud_sql_idle_ipv4": "7.10",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "0E-7",
+        "api_egress_to_europe": "0.016479492187500",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "totals_usd": {
+        "hours": "20",
+        "requests": "72000",
+        "aws_api": "0E-10",
+        "gcp_api": "0E-7",
+        "gcp_egress": "0.016479492187500",
+        "aws_total": "14.4340690000",
+        "gcp_always_running_total": "9.461479492187500",
+        "gcp_scheduled_total": "9.106479492187500"
+      }
+    },
+    "office hours": {
+      "inputs": {
+        "active_hours": "176",
+        "requests": "633600",
+        "requests_per_active_second": 1,
+        "assumed_billed_duration_ms": 200,
+        "memory_gib": "0.5",
+        "cloud_run_vcpu": 1,
+        "simultaneous_requests_assumed": 1,
+        "configured_cloud_run_concurrency_limit": 10,
+        "response_bytes": 2048,
+        "response_destination": "Europe",
+        "total_api_response_gib": "1.20849609375",
+        "static_origin_gets_per_month": 10000,
+        "static_transfer_assumption": "Small cached site; below Firebase 360 MB each day"
+      },
+      "aws_components_usd": {
+        "rds_instance": "11.680",
+        "rds_20_gib_gp2": "2.300",
+        "rds_backup_within_included_allocation": "0",
+        "lambda_compute_and_requests": "0E-10",
+        "s3_static_storage_and_origin_gets": "0.004069",
+        "cloudfront_delivery_within_shared_free_quota": "0",
+        "ecr_assumed_half_gb_retained": "0.050",
+        "database_secret": "0.40",
+        "cloudwatch_within_shared_free_quota": "0",
+        "cognito_within_existing_shared_free_quota": "0",
+        "tls_certificate_and_existing_dns": "0"
+      },
+      "gcp_always_running_components_usd": {
+        "cloud_sql_compute": "7.6650",
+        "cloud_sql_idle_ipv4": "0.00",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "0E-7",
+        "api_egress_to_europe": "0.1450195312500",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "gcp_scheduled_components_usd": {
+        "cloud_sql_compute": "1.8480",
+        "cloud_sql_idle_ipv4": "5.54",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "0E-7",
+        "api_egress_to_europe": "0.1450195312500",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "totals_usd": {
+        "hours": "176",
+        "requests": "633600",
+        "aws_api": "0E-10",
+        "gcp_api": "0E-7",
+        "gcp_egress": "0.1450195312500",
+        "aws_total": "14.4340690000",
+        "gcp_always_running_total": "9.5900195312500",
+        "gcp_scheduled_total": "9.3130195312500"
+      }
+    },
+    "always busy": {
+      "inputs": {
+        "active_hours": "730",
+        "requests": "2628000",
+        "requests_per_active_second": 1,
+        "assumed_billed_duration_ms": 200,
+        "memory_gib": "0.5",
+        "cloud_run_vcpu": 1,
+        "simultaneous_requests_assumed": 1,
+        "configured_cloud_run_concurrency_limit": 10,
+        "response_bytes": 2048,
+        "response_destination": "Europe",
+        "total_api_response_gib": "5.01251220703125",
+        "static_origin_gets_per_month": 10000,
+        "static_transfer_assumption": "Small cached site; below Firebase 360 MB each day"
+      },
+      "aws_components_usd": {
+        "rds_instance": "11.680",
+        "rds_20_gib_gp2": "2.300",
+        "rds_backup_within_included_allocation": "0",
+        "lambda_compute_and_requests": "0.3256000000",
+        "s3_static_storage_and_origin_gets": "0.004069",
+        "cloudfront_delivery_within_shared_free_quota": "0",
+        "ecr_assumed_half_gb_retained": "0.050",
+        "database_secret": "0.40",
+        "cloudwatch_within_shared_free_quota": "0",
+        "cognito_within_existing_shared_free_quota": "0",
+        "tls_certificate_and_existing_dns": "0"
+      },
+      "gcp_always_running_components_usd": {
+        "cloud_sql_compute": "7.6650",
+        "cloud_sql_idle_ipv4": "0.00",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "8.5456000",
+        "api_egress_to_europe": "0.6015014648437500",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "gcp_scheduled_components_usd": {
+        "cloud_sql_compute": "7.6650",
+        "cloud_sql_idle_ipv4": "0.00",
+        "cloud_sql_10_gib_ssd": "1.70",
+        "cloud_sql_assumed_1_gib_used_backup": "0.08",
+        "cloud_run_compute_and_requests": "8.5456000",
+        "api_egress_to_europe": "0.6015014648437500",
+        "firebase_hosting_within_daily_transfer_and_storage_quotas": "0",
+        "artifact_registry_within_shared_half_gib_quota": "0",
+        "secret_manager_within_shared_version_and_access_quotas": "0",
+        "cloud_logging_within_free_quota": "0",
+        "tls_certificate_and_firebase_default_domain": "0"
+      },
+      "totals_usd": {
+        "hours": "730",
+        "requests": "2628000",
+        "aws_api": "0.3256000000",
+        "gcp_api": "8.5456000",
+        "gcp_egress": "0.6015014648437500",
+        "aws_total": "14.7596690000",
+        "gcp_always_running_total": "18.5921014648437500",
+        "gcp_scheduled_total": "18.5921014648437500"
+      }
+    }
+  }
+}

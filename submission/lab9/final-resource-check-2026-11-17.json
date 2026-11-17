@@ -1,0 +1,14 @@
+{
+  "checked_at_utc": "2026-11-17T17:10:30.555622+00:00",
+  "project": "lanora-511019",
+  "cloud_sql": {
+    "settings": {
+      "activationPolicy": "NEVER",
+      "dataDiskSizeGb": "10",
+      "tier": "db-f1-micro"
+    },
+    "state": "STOPPED"
+  },
+  "compute_instances": [],
+  "retained_cost_note": "Disk, backups and idle public IPv4 may still bill; stopped compute does not mean zero total spend."
+}

@@ -1,0 +1,45 @@
+{
+  "source": "Actual Agent Studio browser UI, rebranded Vertex AI Studio",
+  "observed_date": "2026-11-17",
+  "model": "gemini-3.8-flash",
+  "region": "global",
+  "thinking_level": "LOW",
+  "max_output_tokens": 1024,
+  "google_grounding": false,
+  "fixture": "gemini-agenda-a24ac7c3.json#/fixture",
+  "declaration_format_attempted": "parametersJsonSchema",
+  "ui_total_tokens_displayed": 678,
+  "ui_prompt_token_counter_before_submit": 522,
+  "response_function": "record_agenda",
+  "response_arguments": {
+    "meeting": {
+      "items": [
+        {
+          "topic": "нові тарифи Pro",
+          "duration_minutes": 15,
+          "speaker": "Олена"
+        },
+        {
+          "speaker": "Taras",
+          "topic": "фідбек від клієнтів"
+        },
+        {
+          "topic": "що робимо з річною знижкою"
+        }
+      ],
+      "action_items": [
+        {
+          "due_date": "2026-10-23",
+          "assignee": "Taras",
+          "task": "збирає порівняння з конкурентами"
+        }
+      ],
+      "duration_minutes": 45,
+      "starts_at": "2026-10-26T10:00:00",
+      "title": "синк по прайсингу"
+    }
+  },
+  "original_schema_valid": false,
+  "finding": "Studio accepted the declaration in its editor but the response used different field names and a meeting wrapper. This diagnostic output is retained; it is not claimed as a schema-valid result. The UI declaration will be adapted to its OpenAPI parameters field for a corrected run.",
+  "token_note": "UI total is a displayed conversation counter, not API usageMetadata; no input/output split is asserted."
+}

@@ -44,3 +44,6 @@ gcp/*.auto.tfvars
 gcp/bootstrap/terraform.tfvars
 .gcp-builds/
 .firebase/
+
+# Screenshots with account contact details stay local for the private LMS hand-in.
+submission/lab9/private/

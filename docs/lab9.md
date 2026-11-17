@@ -8,6 +8,8 @@ Due: **2026-11-19, 23:55 Europe/Kyiv**. Target project: `lanora-511019`.
 
 This is the working report, not a completed submission. Do not mark a row done without its
 real cloud output or screenshot.
+The concise hand-in snapshot is [REPORT_UK.md](../submission/lab9/REPORT_UK.md);
+the older checkpoints below are retained as historical provenance.
 
 | Requirement | Artifact | Status |
 |---|---|---|
@@ -17,11 +19,11 @@ real cloud output or screenshot.
 | Budget, scoped service accounts, keyless HCP auth | GCP/HCP configuration and plan | Applied; remote plans authenticated with WIF |
 | Frontend and authenticated API reading Cloud SQL | Firebase URL, private-window screenshot and `core-read-proof.json` | Passed; database now stopped |
 | Four traffic profiles and calculator estimates | Cost table below | Pending calculator verification |
-| BigQuery query and bytes processed | `bigquery-5d721cff.json` | Passed; clearer screenshot still needed |
+| BigQuery query and bytes processed | `bigquery-5d721cff.json` and local private screenshot | Passed; SQL and byte statistics visually verified |
 | Looker Studio chart | `looker-studio-bigquery-chart.png` and `looker-studio.json` | Created and visually verified |
-| Vision or Document AI OCR | `vision-ocr-dfdc251e.json` and synthetic receipt | API passed; screenshot pending |
+| Vision or Document AI OCR | `vision-ocr-input-and-result.png` and original response JSON | Passed; screenshot visually verified |
 | Dataflow small-file batch demo | `dataflow-verified-e2dbab92.json` | Completed; three output rows verified |
-| Gemini agenda prompt in Vertex AI Studio | `gemini-agenda-a24ac7c3.json` and comparison below | Vertex API passed; Studio UI pending |
+| Gemini agenda prompt in Vertex AI Studio | API JSON, `vertex-studio-agenda-2026-11-17.json` and private screenshot | API and Studio passed the original schema; 15/15 fields |
 | Stop Cloud SQL and inspect billing | Update-only plan and later billing report | SQL stopped; next-day billing check pending |
 
 ## Deployment choices
@@ -163,9 +165,11 @@ itself supply the meeting's owners, durations or action items.
   Shakespeare query processed **3,781,873 bytes** (3.61 MiB) and billed 10 MiB before applying
   the monthly free allowance. Dry run and execution both used a 100 MiB ceiling. Ten rows were
   written with `WRITE_EMPTY` into `lanora-511019.lab9.shakespeare_top10`. No existing table
-  content was overwritten. The current console screenshot needs recapturing: its narrow
-  layout cuts off the byte statistics and the editor warns that the destination is already
-  populated. The saved successful job JSON contains the actual statistics and result.
+  content was overwritten. The final console screenshot shows the successful job, processed
+  and billed bytes, destination and stored SQL. It is retained locally at
+  `submission/lab9/private/bigquery-executed-query-and-bytes.png` for the LMS hand-in because
+  the console also displays the owner's email. The private directory is ignored by Git.
+  The saved successful job JSON contains the public statistics and result.
 - **Vision:** one `TEXT_DETECTION` call recognized the synthetic receipt, including
   `LANORA TEST CAFE` and `TOTAL 3.50`. Input: `synthetic-receipt-ea77eb7d.png`; full actual
   result: `vision-ocr-dfdc251e.json`. No real receipt or personal document was uploaded.
@@ -179,8 +183,8 @@ itself supply the meeting's owners, durations or action items.
 - **Gemini:** one Vertex AI API request to `gemini-3.8-flash`, global endpoint, low thinking,
   maximum 1,024 output tokens. It used the original `agenda-v2` system prompt/tool schema,
   Lab 6 Ukrainian input 1 and reference date 2026-10-20. The response invoked `record_agenda`
-  once and passed the original `ParsedAgenda` Pydantic validation. This API call is useful
-  evidence but does not complete the requested Vertex AI Studio UI step.
+  once and passed the original `ParsedAgenda` Pydantic validation. A separate Studio browser
+  run is recorded below; this API result is not presented as that UI run.
 
 | Same Lab 6 input 1, `agenda-v2` | Correct fields | Invented values | Input / output tokens | Estimated call cost |
 |---|---:|---:|---:|---:|
@@ -226,8 +230,7 @@ Billing Reports the next day.
   `database_running = false`. A subsequent API description returned SQL **STOPPED** and
   activation policy **NEVER**. Dataflow completed and its workers are no longer present.
   SQL disk, backups and idle public IPv4 remain chargeable; the USD 5 alert is not a cap.
-- Still required: readable BigQuery and OCR screenshots, the Studio UI
-  step, official calculator evidence, and a billing check the next day.
+- Still required: official calculator evidence and a billing check the next day.
 
 ### Continuation checkpoint (2026-11-17)
 
@@ -250,6 +253,44 @@ Billing Reports the next day.
   Reconnecting the computer-use session did not restore a visible window. No SQL instance
   or Dataflow worker was started during this continuation. Remaining UI steps need access
   to the unlocked, visible browser.
+
+### Screenshot completion (2026-11-17)
+
+All three required screenshots now exist and have been visually checked: the private
+BigQuery console screenshot, `looker-studio-bigquery-chart.png`, and
+`vision-ocr-input-and-result.png`. The OCR screenshot explicitly identifies its local viewer
+and shows the original image beside the verbatim saved Vision response. It is not presented
+as the Google Cloud console. The original downloads, earlier draft and source JSON remain
+intact. Only the screenshot containing the account email stays out of the public repository.
+
+### Studio completion and hand-in packet (2026-11-17)
+
+Ran the original Lab 6 `agenda-v2` system instruction and Ukrainian fixture in the current
+**Agent Studio / Gemini Platform** browser interface, which the old Vertex AI Studio URL
+redirects to. Model: `gemini-3.8-flash`, global, LOW thinking, 1,024 output-token limit;
+Google grounding and code execution were off. No endpoint was deployed and no API key
+was created. The returned `record_agenda` arguments passed the original `ParsedAgenda`
+validator and exactly matched the normalized Vertex API agenda: **15/15 fields, no invented
+values**. Evidence: `vertex-studio-agenda-2026-11-17.json` and the actual private screenshot
+`submission/lab9/private/vertex-studio-agenda-result.png`.
+
+Studio's function editor uses OpenAPI `parameters`. The first attempt pasted the API's
+`parametersJsonSchema` form and returned an invalid wrapper/field shape; that result is
+retained in `vertex-studio-run1-diagnostic.json`. A fresh tab used the same prompt with
+references inlined and nullable properties adapted to OpenAPI, then passed validation.
+There were two short Studio model requests. Its displayed 631-token conversation counter
+does not expose API billing input/output usage, so no exact Studio-call cost is asserted.
+The API usage/cost comparison above remains the reproducible comparison. Prompt-gallery
+saving remained at `Saving`; the packet preserves the local fixture, declaration, response
+and screenshot rather than claiming a saved gallery URL.
+
+The local teacher packet is `submission/lab9/private/for-teacher/`. It collects the three
+required screenshots, private-window board and Studio screenshot, original JSON outputs,
+fixtures, cost sources, execution logs, the final report, ADR/runbook and tracked source
+archive. The private parent is ignored by Git. A next-day billing check and official
+calculator UI estimates remain outstanding. Chrome became inaccessible again and two
+reconnection attempts timed out after the user confirmed the screen was unlocked; no
+calculator estimate or screenshot is invented to fill that gap.
 
 ### Earlier setup checkpoint (retained for provenance)
 

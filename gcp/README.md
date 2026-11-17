@@ -10,6 +10,16 @@ Verified on 2026-11-17: frontend **https://lanora-511019.web.app**, API
 passed before **Cloud SQL was stopped**. Database endpoints need the database started for a
 new demonstration. Evidence and the remaining browser steps are tracked in the lab report.
 
+Latest hand-in verification, 2026-11-17 20:34 Europe/Kyiv: a reviewed start plan applied
+0 additions, 1 update and 0 deletions in HCP run `run-JuX3kqnv6XGRTZjk`.
+Cloud SQL is now **RUNNABLE**, with `database_running = true`, for the lecturer's live check.
+Authenticated readiness, list and the previously retained task read returned 200; anonymous
+list access returned 401. The frontend deep route also returned 200. See
+[`live-db-read-2026-11-17-submission.json`](../submission/lab9/live-db-read-2026-11-17-submission.json).
+The exact hand-in text, cost table and calculator links are in
+[`Moodle.txt`](../submission/lab9/Moodle.txt). Only that text and the three requested PNGs
+belong in the concise submission. Stop instructions remain below; running SQL bills compute.
+
 ## Tools and authentication
 
 Use Terraform 1.17+, Docker, Node and the pnpm version in `frontend/package.json`. The build

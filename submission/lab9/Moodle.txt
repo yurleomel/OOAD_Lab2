@@ -1,0 +1,68 @@
+1. Коміт і ADR
+
+Коміт, що додає gcp/ Terraform configuration:
+https://github.com/yurleomel/OOAD_Lab2/commit/5f8a43fe990e6ddf4ad2bea01379bb9b4bd1e864
+
+ADR із вибором сервісів у docs/adr/:
+https://github.com/yurleomel/OOAD_Lab2/blob/ff1bf3128e408bcb846a74c300bd399e7a5e2052/docs/adr/0009-google-cloud.md
+
+2. Проєкт у Google Cloud
+
+Frontend: https://lanora-511019.web.app
+API: https://peach-api-lwunl4a43q-uc.a.run.app
+
+Перевірено 17.11.2026 о 20:34 за Києвом: сторінка /items/list відкривається (HTTP 200); після Cognito sign-in GET /api/v1/health/ready повертає HTTP 200 і database=ok. GET /api/v1/items та читання збереженої задачі /api/v1/items/d7739476-2e3d-42cf-a3d8-c1b7c47cd33e повертають HTTP 200. Без токена /api/v1/items повертає 401. Cloud SQL увімкнена для перевірки сайту.
+
+3. Таблиця вартості та припущення free tier
+
+USD/місяць, 730 годин, on-demand; AWS us-east-1, GCP us-central1; без податків і promotional/trial credits. Порівнюється core власного проєкту. Фактичний AWS database - RDS PostgreSQL db.t4g.micro, Single-AZ, 20 GB gp2 (не Aurora з прикладу).
+
+| Профіль | Активні години | API-запити/місяць | AWS | GCP: SQL працює весь місяць | GCP: SQL лише активні години |
+|---|---:|---:|---:|---:|---:|
+| Ніхто не користується | 0 | 0 | 14.43 | 9.45 | 9.08 |
+| 10 демонстрацій по 2 години | 20 | 72000 | 14.43 | 9.46 | 9.11 |
+| 8 годин x 22 робочі дні | 176 | 633600 | 14.43 | 9.59 | 9.31 |
+| Постійне навантаження | 730 | 2628000 | 14.76 | 18.59 | 18.59 |
+
+| Складова | AWS, USD/місяць | GCP, USD/місяць |
+|---|---|---|
+| Frontend + CDN + HTTPS | S3 0.004069; CloudFront у вільній квоті | Firebase Hosting у вільній квоті |
+| API compute + requests | 0 / 0 / 0 / 0.3256 для чотирьох профілів | 0 / 0 / 0 / 8.5456 для чотирьох профілів |
+| Database compute | 730 x 0.016 = 11.68 | 730 x 0.0105 = 7.665, якщо працює весь місяць; інакше h x 0.0105 |
+| Database storage + backups | 20 GB gp2 x 0.115 = 2.30; backup у включеному обсязі | 10 GB SSD x 0.17 = 1.70; припущений 1 GiB backup x 0.08 = 0.08 |
+| Public IPv4 зупиненої SQL | Не застосовано | (730 - h) x 0.01, якщо SQL зупиняється поза активними годинами |
+| Registry | Припущені 0.5 GB ECR x 0.10 = 0.05 | Image 83.899 MB - у вільній квоті |
+| Secrets | Один database secret: 0.40; незначні API calls округлено до центів | Один active version і мала кількість звернень у вільній квоті |
+| Logs | У вільній квоті | У вільній квоті |
+| API egress | У вільній квоті CloudFront | 0 / 0.016479 / 0.145020 / 0.601501 для чотирьох профілів |
+
+Припущення навантаження:
+- 1 API-запит/с під час активних годин, 200 мс billed duration, 512 MiB RAM; Lambda ARM64, Cloud Run 1 vCPU, без перекриття запитів. Deployed Cloud Run concurrency limit = 10; у розрахунку одночасних запитів = 1.
+- Відповідь 2 KiB до Європи; GCP egress 0.12/GiB. North America-only безкоштовну outbound quota не застосовано.
+- AWS RDS працює всі 730 годин у кожному профілі. GCP показано для двох режимів Cloud SQL; storage, backups та idle public IPv4 залишаються платними після зупинки.
+- Невеликий frontend: AWS S3 storage 0.003 GB, 10,000 GET/місяць; трафік Firebase статики нижчий за 360 MB кожного дня.
+- Reports/LLM workloads і cold-start overhead виключено. Це прогноз окремого core кожної хмари; під час паралельного утримання обох розгортань обидва рахунки складаються. Навантажувальний тест не запускався.
+
+Free tier вважається доступним і не витраченим іншими workloads:
+- Lambda: 1 млн запитів і 400,000 GB-с/місяць; CloudFront: 1 TB transfer і 10 млн запитів/місяць.
+- Cloud Run request-based: 2 млн запитів, 180,000 vCPU-с і 360,000 GiB-с/місяць.
+- Firebase Hosting: 10 GB storage, 360 MB/day transfer; Artifact Registry: 0.5 GiB; Secret Manager: 6 active versions / 10,000 accesses; Cloud Logging: 50 GiB/project/month.
+
+За цих припущень GCP дешевший у перших трьох профілях, AWS - у busy. У тихих профілях домінує RDS/Cloud SQL або retained IPv4; у busy GCP вирішальною стає CPU-складова Cloud Run. Пастка GCP: SQL не паузиться на idle, а зупинка не прибирає storage/backups та idle IP; min instances або instance-based billing також збільшують рахунок.
+
+Перевірка офіційними калькуляторами 17.11.2026:
+AWS: https://calculator.aws/#/estimate?id=e92fcb63d1e165e9019936ef2b647185f927d003
+У saved estimate: RDS + 20 GB gp2 = 13.98, Lambda busy з free tier = 0.33, secret = 0.40, ECR = 0.05, S3 округлюється до 0.00; загалом busy = 14.76. Окремо в UI перевірено Lambda для 0 / 72,000 / 633,600 / 2,628,000 запитів: 0 / 0 / 0 / 0.33.
+
+Google Cloud: https://cloud.google.com/products/calculator/estimate-preview/CiQ0Mzc5ZTUwYi02MzUzLTQxOWItODk4Yy03NjU2MDhhZDU5ZjUQAQ%3D%3D
+Cloud SQL 730h + 10 GiB SSD = 9.37 до окремого backup. Cloud Run calculator пропонує фіксовані request-count presets, тому в таблиці точні 72,000 / 633,600 / 2,628,000 перераховано за тарифами. Для пресетів 0 / 100,000 / 760,417 / 2.5 млн UI показав Cloud Run 0 / 0.51 / 3.84 / 12.83, але його View details прямо зазначає: CPU/RAM free tier не застосовано. Таблиця вище застосовує доступні спільні квоти. Наприклад, busy: (525,600 - 180,000) x 0.000024 + (2,628,000 - 2,000,000) x 0.0000004 = 8.5456 за API; memory залишається у free tier. Додано backup 0.08 і точний egress 0.601501, тому GCP busy = 18.59. Shared preview може показувати один із перевірених пресетів до цих поправок.
+
+Збережений Google shared preview містить пресет 760,417 запитів: Cloud Run 3.84 + SQL 9.37 = 13.21 до CPU/RAM free tier, backup та точного egress. Це перевірка складових у калькуляторі; фінальні чотири профілі з точними запитами та вказаними квотами наведені в таблиці вище.
+
+Тарифи: https://cloud.google.com/sql/pricing ; https://cloud.google.com/run/pricing ; https://firebase.google.com/pricing ; https://aws.amazon.com/rds/postgresql/pricing/ ; https://aws.amazon.com/lambda/pricing/
+
+4. Три скриншоти
+
+01-bigquery.png
+02-looker-studio.png
+03-vision-ocr.png

@@ -1,0 +1,19 @@
+{
+  "verified_at_utc": "2026-11-17T18:34:08.359681+00:00",
+  "frontend_url": "https://lanora-511019.web.app",
+  "frontend_deep_route_status": 200,
+  "api_url": "https://peach-api-lwunl4a43q-uc.a.run.app",
+  "api_health_status": 200,
+  "authenticated_database_readiness_status": 200,
+  "database": "ok",
+  "list_status": 200,
+  "get_task_status": 200,
+  "retained_task_id": "d7739476-2e3d-42cf-a3d8-c1b7c47cd33e",
+  "retained_task_name": "Lab 9 GCP persistence check",
+  "items_total": 1,
+  "anonymous_list_status": 401,
+  "verification_mode": "Read-only verification of retained task; no fixture, task or schema was created or changed.",
+  "cloud_sql_state": "RUNNABLE",
+  "cloud_sql_activation_policy": "ALWAYS",
+  "hcp_start_run": "run-JuX3kqnv6XGRTZjk"
+}
